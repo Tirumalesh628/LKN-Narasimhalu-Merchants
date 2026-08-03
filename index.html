@@ -1,0 +1,2443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LKM & Narasimhalu Fruits Merchant</title>
+  <!-- Third-Party CDNs: FontAwesome, Chart.js, SheetJS, jsPDF & AutoTable -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #2E7D32;
+      --primary-hover: #1B5E20;
+      --accent: #66BB6A;
+      --accent-light: #E8F5E9;
+      --bg-color: #F4F6F9;
+      --card-bg: #FFFFFF;
+      --text-main: #2C3E50;
+      --text-muted: #7F8C8D;
+      --border-color: #E2E8F0;
+      --danger: #E53935;
+      --warning: #FB8C00;
+      --success: #43A047;
+      --info: #0288D1;
+      --shadow: 0 4px 12px rgba(0,0,0,0.05);
+      --radius: 10px;
+      --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body.dark-mode {
+      --primary: #4CAF50;
+      --primary-hover: #388E3C;
+      --accent: #81C784;
+      --accent-light: #1E3A20;
+      --bg-color: #121212;
+      --card-bg: #1E1E1E;
+      --text-main: #E0E0E0;
+      --text-muted: #A0A0A0;
+      --border-color: #333333;
+      --shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text-main); height: 100vh; overflow: hidden; display: flex; transition: var(--transition); }
+
+    /* AUTH / LOGIN SCREEN */
+    #authContainer {
+      position: fixed; inset: 0; background: linear-gradient(135deg, var(--primary) 0%, #112e13 100%);
+      display: flex; align-items: center; justify-content: center; z-index: 9999;
+    }
+    .login-card {
+      background: var(--card-bg); width: 100%; max-width: 400px; padding: 2.5rem; border-radius: var(--radius);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center;
+    }
+    .login-card .brand { font-size: 2rem; font-weight: 800; color: var(--primary); margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+    .login-card .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem; }
+
+    /* LAYOUT STRUCTURE */
+    #appContainer { display: flex; width: 100vw; height: 100vh; overflow: hidden; }
+    sidebar {
+      width: 260px; background: var(--card-bg); border-right: 1px solid var(--border-color); display: flex;
+      flex-direction: column; transition: var(--transition); z-index: 100;
+    }
+    .sidebar-brand { padding: 1.25rem 1.5rem; font-size: 1.3rem; font-weight: 700; color: var(--primary); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 0.75rem; }
+    .sidebar-menu { list-style: none; padding: 1rem 0; flex: 1; overflow-y: auto; }
+    .sidebar-menu li a {
+      display: flex; align-items: center; gap: 1rem; padding: 0.85rem 1.5rem; color: var(--text-muted);
+      text-decoration: none; font-weight: 600; font-size: 0.95rem; transition: var(--transition); border-left: 4px solid transparent;
+    }
+    .sidebar-menu li a:hover, .sidebar-menu li a.active {
+      color: var(--primary); background: var(--accent-light); border-left-color: var(--primary);
+    }
+    
+    main { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: var(--bg-color); }
+    header {
+      height: 65px; background: var(--card-bg); border-bottom: 1px solid var(--border-color); display: flex;
+      align-items: center; justify-content: space-between; padding: 0 1.5rem; z-index: 90;
+    }
+    .header-actions { display: flex; align-items: center; gap: 1rem; }
+    .content-area { flex: 1; padding: 1.5rem; overflow-y: auto; position: relative; }
+
+    /* UI COMPONENTS */
+    .btn {
+      border: none; padding: 0.65rem 1.2rem; border-radius: 6px; font-weight: 600; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 0.5rem; transition: var(--transition); font-size: 0.9rem; outline: none;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary { background: var(--accent); color: white; }
+    .btn-secondary:hover { background: #55a859; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-danger:hover { background: #b71c1c; }
+    .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
+    .btn-outline:hover { background: var(--border-color); }
+    .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+
+    .card { background: var(--card-bg); border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: var(--shadow); padding: 1.25rem; margin-bottom: 1.5rem; }
+    .card-title { font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; }
+
+    .grid { display: grid; gap: 1.25rem; }
+    .grid-4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .grid-2 { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
+
+    /* STAT CARDS */
+    .stat-card { display: flex; align-items: center; gap: 1.25rem; }
+    .stat-icon { width: 52px; height: 52px; border-radius: 12px; background: var(--accent-light); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+    .stat-data .val { font-size: 1.4rem; font-weight: 800; color: var(--text-main); }
+    .stat-data .lbl { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
+
+    /* TABLES */
+    .table-responsive { width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+    th { background: var(--bg-color); padding: 0.85rem 1rem; font-weight: 700; color: var(--text-muted); border-bottom: 2px solid var(--border-color); text-transform: uppercase; font-size: 0.75rem; }
+    td { padding: 0.85rem 1rem; border-bottom: 1px solid var(--border-color); color: var(--text-main); }
+    tr:hover { background: var(--accent-light); }
+
+    /* STATUS BADGES & TEXT COLORS */
+    .badge { padding: 0.3rem 0.6rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; display: inline-block; }
+    .badge-paid, .badge-green { background: #E8F5E9; color: var(--success); }
+    .badge-partial, .badge-yellow { background: #FFF3E0; color: var(--warning); }
+    .badge-pending, .badge-red { background: #FFEBEE; color: var(--danger); }
+    .badge-cancelled { background: #E0E0E0; color: #616161; }
+    
+    .text-green { color: #2E7D32 !important; font-weight: bold; }
+    .text-red { color: #E53935 !important; font-weight: bold; }
+
+    /* FORMS & INPUTS */
+    .form-group { margin-bottom: 1.1rem; position: relative; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-main); }
+    .form-control { width: 100%; padding: 0.65rem 0.9rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--card-bg); color: var(--text-main); outline: none; transition: var(--transition); font-size: 0.9rem; }
+    .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(46,125,50,0.15); }
+    .form-row { display: flex; gap: 1rem; }
+    .form-row .form-group { flex: 1; }
+
+    /* POS SCREEN SPECIFICS */
+    .pos-layout { display: flex; gap: 1.25rem; height: calc(100vh - 120px); }
+    .pos-products { flex: 1; overflow-y: auto; padding-right: 0.5rem; }
+    .pos-cart { width: 380px; background: var(--card-bg); border-radius: var(--radius); border: 1px solid var(--border-color); display: flex; flex-direction: column; box-shadow: var(--shadow); }
+    .cart-items { flex: 1; overflow-y: auto; padding: 1rem; }
+    .cart-item { display: grid; grid-template-columns: 1fr auto auto; gap: 0.5rem; align-items: center; padding: 0.6rem 0; border-bottom: 1px solid var(--border-color); }
+
+    .product-card {
+      background: var(--card-bg); border-radius: var(--radius); border: 1px solid var(--border-color);
+      overflow: hidden; box-shadow: var(--shadow); transition: var(--transition); display: flex; flex-direction: column;
+    }
+    .product-card:hover { transform: translateY(-3px); box-shadow: 0 8px 16px rgba(0,0,0,0.1); }
+    .product-img { height: 110px; background: var(--bg-color); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; color: var(--text-muted); position: relative; }
+    .product-details { padding: 1rem; display: flex; flex-direction: column; flex: 1; justify-content: space-between; }
+
+    /* MODAL SYSTEM */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: var(--transition); z-index: 1000; }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    .modal { background: var(--card-bg); width: 90%; max-width: 550px; border-radius: var(--radius); padding: 1.5rem; box-shadow: 0 15px 30px rgba(0,0,0,0.2); transform: translateY(-20px); transition: var(--transition); max-height: 90vh; overflow-y: auto; }
+    .modal-overlay.active .modal { transform: translateY(0); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.8rem; margin-bottom: 1rem; }
+
+    /* TOAST NOTIFICATIONS */
+    .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 0.5rem; }
+    .toast { background: var(--card-bg); color: var(--text-main); padding: 0.8rem 1.2rem; border-radius: 6px; box-shadow: 0 5px 15px rgba(0,0,0,0.15); border-left: 5px solid var(--primary); display: flex; align-items: center; gap: 0.75rem; animation: slideLeft 0.3s forwards; }
+    .toast.toast-error { border-left-color: var(--danger); }
+    .toast.toast-warning { border-left-color: var(--warning); }
+    @keyframes slideLeft { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* LOADING SPINNER */
+    #spinnerOverlay { position: fixed; inset: 0; background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; z-index: 9998; opacity: 0; pointer-events: none; transition: var(--transition); }
+    body.dark-mode #spinnerOverlay { background: rgba(0,0,0,0.7); }
+    #spinnerOverlay.active { opacity: 1; pointer-events: auto; }
+    .spinner { width: 45px; height: 45px; border: 4px solid var(--border-color); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* AUTOCOMPLETE SUGGESTIONS */
+    .suggestions { position: absolute; top: 100%; left: 0; right: 0; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 0 0 6px 6px; box-shadow: var(--shadow); max-height: 150px; overflow-y: auto; z-index: 100; display: none; }
+    .suggestion-item { padding: 0.6rem 0.9rem; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+    .suggestion-item:hover { background: var(--accent-light); }
+
+    /* SYNC BADGE */
+    .sync-status { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; font-weight: 600; padding: 0.3rem 0.6rem; border-radius: 20px; background: var(--accent-light); color: var(--primary); }
+    .sync-status.syncing { color: var(--warning); }
+
+    /* PRINT INVOICE STYLES */
+    @media print {
+      body * { visibility: hidden; }
+      #printableInvoice, #printableInvoice * { visibility: visible; }
+      #printableInvoice { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOADING SPINNER -->
+  <div id="spinnerOverlay"><div class="spinner"></div></div>
+
+  <!-- TOAST CONTAINER -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- AUTH / LOGIN MODULE -->
+  <div id="authContainer">
+    <div class="login-card">
+      <div class="brand"><i class="fa-solid fa-lemon"></i> LKM & Narasimhalu Fruits Merchant</div>
+      <div class="subtitle">Enterprise ERP & POS System</div>
+      <form id="loginForm">
+        <div class="form-group">
+          <input type="text" id="loginUser" class="form-control" placeholder="Username" required value="admin">
+        </div>
+        <div class="form-group">
+          <input type="password" id="loginPass" class="form-control" placeholder="Password" required value="admin123">
+        </div>
+        <div class="form-group" style="text-align: left; display:flex; align-items:center; gap:0.5rem;">
+          <input type="checkbox" id="rememberMe" checked>
+          <label for="rememberMe" style="margin:0;">Remember Me</label>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.8rem;">Login to ERP</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN SYSTEM LAYOUT -->
+  <div id="appContainer" style="display:none;">
+    <!-- SIDEBAR NAVIGATION -->
+    <sidebar>
+      <div class="sidebar-brand">
+        <i class="fa-solid fa-apple-whole"></i> LKM & Narasimhalu Fruits Merchant
+      </div>
+      <ul class="sidebar-menu">
+        <li><a href="#" class="nav-link active" data-target="modPOS"><i class="fa-solid fa-cash-register"></i> Order Page</a></li>
+        <li><a href="#" class="nav-link" data-target="modAllOrders"><i class="fa-solid fa-list-check"></i> All Orders</a></li>
+        <li><a href="#" class="nav-link" data-target="modCustomers"><i class="fa-solid fa-users"></i> Customers</a></li>
+        <li><a href="#" class="nav-link" data-target="modInventory"><i class="fa-solid fa-boxes-stacked"></i> Inventory</a></li>
+        <li><a href="#" class="nav-link" data-target="modPurchases"><i class="fa-solid fa-truck-ramp-box"></i> Purchases</a></li>
+        <li><a href="#" class="nav-link" data-target="modSuppliers"><i class="fa-solid fa-handshake"></i> Suppliers</a></li>
+        <li><a href="#" class="nav-link" data-target="modPending"><i class="fa-solid fa-clock-rotate-left"></i> Pending Payments</a></li>
+        <li><a href="#" class="nav-link" data-target="modDashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</a></li>
+        <li><a href="#" class="nav-link" data-target="modExpenses"><i class="fa-solid fa-wallet"></i> Expenses</a></li>
+        <li><a href="#" class="nav-link" data-target="modTransactions"><i class="fa-solid fa-receipt"></i> Transactions</a></li>
+        <li><a href="#" class="nav-link" data-target="modReports"><i class="fa-solid fa-file-invoice-dollar"></i> Reports</a></li>
+        <li><a href="#" class="nav-link" data-target="modBackup"><i class="fa-solid fa-database"></i> Backup & Sync</a></li>
+      </ul>
+    </sidebar>
+
+    <!-- MAIN CONTENT WRAPPER -->
+    <main>
+      <!-- TOP NAVBAR -->
+      <header>
+        <div style="display:flex; align-items:center; gap:1rem;">
+          <div style="font-weight:700; font-size:1.1rem;" id="headerTitle">Dashboard</div>
+          <div class="sync-status" id="syncStatusTag"><i class="fa-solid fa-cloud-check"></i> <span id="syncText">Synced (5m Auto)</span></div>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline btn-sm" id="btnThemeToggle"><i class="fa-solid fa-moon"></i></button>
+          <div style="font-size:0.9rem; font-weight:600;" id="userDisplay">Admin</div>
+          <button class="btn btn-danger btn-sm" id="btnLogout"><i class="fa-solid fa-right-from-bracket"></i></button>
+        </div>
+      </header>
+
+      <!-- MODULE VIEWS -->
+      <div class="content-area">
+        
+        <!-- MODULE 1: DASHBOARD -->
+        <section id="modDashboard" class="module-view" style="display:none;">
+          <div class="grid grid-4" style="margin-bottom:1.5rem;">
+            <div class="card stat-card"><div class="stat-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div><div class="stat-data"><div class="val" id="dashSales">₹0</div><div class="lbl">Today's Sales</div></div></div>
+            <div class="card stat-card"><div class="stat-icon"><i class="fa-solid fa-bag-shopping"></i></div><div class="stat-data"><div class="val" id="dashOrders">0</div><div class="lbl">Today's Orders</div></div></div>
+            <div class="card stat-card"><div class="stat-icon"><i class="fa-solid fa-vault"></i></div><div class="stat-data"><div class="val" id="dashCollection">₹0</div><div class="lbl">Total Collections</div></div></div>
+            <div class="card stat-card"><div class="stat-icon" style="color:var(--danger);"><i class="fa-solid fa-user-minus"></i></div><div class="stat-data"><div class="val" id="dashPendingCust">₹0</div><div class="lbl">Customer Due</div></div></div>
+            <div class="card stat-card"><div class="stat-icon" style="color:var(--warning);"><i class="fa-solid fa-truck-arrow-right"></i></div><div class="stat-data"><div class="val" id="dashPendingSupp">₹0</div><div class="lbl">Supplier Payable</div></div></div>
+            <div class="card stat-card"><div class="stat-icon"><i class="fa-solid fa-warehouse"></i></div><div class="stat-data"><div class="val" id="dashStockVal">₹0</div><div class="lbl">Stock Value</div></div></div>
+            <div class="card stat-card"><div class="stat-icon" style="color:var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i></div><div class="stat-data"><div class="val" id="dashLowStock">0</div><div class="lbl">Low Stock Items</div></div></div>
+          </div>
+          <div class="grid grid-2">
+            <div class="card"><div class="card-title">Sales Analytics</div><canvas id="chartSales" height="200"></canvas></div>
+            <div class="card"><div class="card-title">Payment Methods Share</div><canvas id="chartPayments" height="200"></canvas></div>
+          </div>
+        </section>
+
+        <!-- MODULE 2: POS ORDER PAGE -->
+        <section id="modPOS" class="module-view">
+          <div class="pos-layout">
+            <div class="pos-products">
+              <div class="card" style="padding:0.75rem; margin-bottom:1rem; display:flex; gap:1rem; align-items:center;">
+  <input type="text" id="posSearch" class="form-control" placeholder="Search fruits (A-Z)...">
+  <input type="text" id="posOrderNoSearch" class="form-control" placeholder="Order No (e.g. LKM000001)..." style="max-width: 220px;">
+  <button class="btn btn-primary" id="btnLoadOrder"><i class="fa-solid fa-download"></i> Load</button>
+  <button class="btn btn-secondary" id="btnOpenCustomItemModal" style="margin-left: auto;"><i class="fa-solid fa-plus"></i> Custom Item</button>
+</div>
+              <div class="grid grid-4" id="posProductGrid"></div>
+            </div>
+            <div class="pos-cart">
+              <div style="padding:1rem; border-bottom:1px solid var(--border-color); font-weight:700;" class="card-title">Current Order <span class="badge badge-paid" id="posOrderNo">LKM000001</span></div>
+              <div class="cart-items" id="posCartItems"></div>
+              <div style="padding:1rem; border-top:1px solid var(--border-color); background:var(--bg-color);">
+                <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;"><span>Subtotal:</span><strong id="cartSubtotal">₹0.00</strong></div>
+                <button class="btn btn-primary" id="btnCheckout" style="width:100%; justify-content:center; padding:0.8rem;"><i class="fa-solid fa-check-circle"></i> Place Order</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- MODULE 3: ALL ORDERS VIEW -->
+        <section id="modAllOrders" class="module-view" style="display:none;">
+          <!-- Summary Metrics Cards -->
+          <div class="grid grid-3" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 1.25rem;">
+            <div class="card stat-card" style="margin-bottom:0;">
+              <div class="stat-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+              <div class="stat-data">
+                <div class="val" id="ordersGrandTotal">₹0.00</div>
+                <div class="lbl">Grand Total</div>
+              </div>
+            </div>
+            <div class="card stat-card" style="margin-bottom:0;">
+              <div class="stat-icon" style="color:var(--success);"><i class="fa-solid fa-circle-check"></i></div>
+              <div class="stat-data">
+                <div class="val" id="ordersPaidAmount">₹0.00</div>
+                <div class="lbl">Paid Amount</div>
+              </div>
+            </div>
+            <div class="card stat-card" style="margin-bottom:0;">
+              <div class="stat-icon" style="color:var(--danger);"><i class="fa-solid fa-clock-rotate-left"></i></div>
+              <div class="stat-data">
+                <div class="val" id="ordersPendingDue">₹0.00</div>
+                <div class="lbl">Pending Due</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filters & Table Card -->
+          <div class="card">
+            <div class="card-title" style="flex-wrap: wrap; gap: 1rem;">
+              <span>All Orders Management</span>
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <label for="orderDateFilter" style="font-size: 0.85rem; font-weight: 600; margin: 0;">Date Filter:</label>
+                <input type="date" id="orderDateFilter" class="form-control" style="width: auto; padding: 0.4rem 0.6rem; font-size: 0.85rem;">
+                <button class="btn btn-outline btn-sm" id="btnResetOrderDate" title="Clear Date Filter">All Time</button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr><th>Order No</th><th>Date</th><th>Customer</th><th>Phone</th><th>Grand Total</th><th>Paid Amount</th><th>Pending Due</th><th>Status</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="allOrdersTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- MODULE 4: INVENTORY -->
+        <section id="modInventory" class="module-view" style="display:none;">
+          <div class="card">
+            <div class="card-title">
+              Fruit Inventory
+              <button class="btn btn-primary btn-sm" id="btnOpenAddFruit"><i class="fa-solid fa-plus"></i> Add Fruit</button>
+            </div>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr><th>Fruit</th><th>Category</th><th>Unit</th><th>Available Qty</th><th>Purchased</th><th>Sold</th><th>Purchase Price</th><th>Selling Price</th><th>Stock Value</th><th>Status</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="inventoryTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- MODULE 5: PURCHASES -->
+        <section id="modPurchases" class="module-view" style="display:none;">
+          <div class="card">
+            <div class="card-title">
+              Purchase Management
+              <button class="btn btn-primary btn-sm" id="btnOpenAddPurchase"><i class="fa-solid fa-plus"></i> New Purchase</button>
+            </div>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr><th>Purchase No</th><th>Supplier</th><th>Invoice No</th><th>Date</th><th>Amount</th><th>Paid</th><th>Pending</th><th>Status</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="purchasesTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- MODULE 6: SUPPLIERS -->
+        <section id="modSuppliers" class="module-view" style="display:none;">
+          <div class="card">
+            <div class="card-title">
+              Suppliers Directory
+              <button class="btn btn-primary btn-sm" id="btnOpenAddSupplier"><i class="fa-solid fa-plus"></i> Add Supplier</button>
+            </div>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr><th>Name</th><th>Phone</th><th>Address</th><th>Total Purchases</th><th>Paid</th><th>Pending Balance</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="suppliersTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- MODULE 7: CUSTOMERS -->
+        <section id="modCustomers" class="module-view" style="display:none;">
+          <div class="card">
+            <div class="card-title" style="flex-wrap: wrap; gap: 1rem;">
+              <span>Customer Management (Sorted Newest First)</span>
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <input type="text" id="customerSearchInput" class="form-control" placeholder="Search by customer name..." style="width: 250px; padding: 0.4rem 0.6rem; font-size: 0.85rem;" autocomplete="off">
+                <button class="btn btn-primary btn-sm" id="btnOpenAddCustomer"><i class="fa-solid fa-plus"></i> Add Customer</button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr><th>Name</th><th>Phone</th><th>Total Purchases</th><th>Total Paid</th><th>Pending Balance</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="customersTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- MODULE 8: PENDING PAYMENTS -->
+        <section id="modPending" class="module-view" style="display:none;">
+          <div class="grid grid-2">
+            <div class="card">
+              <div class="card-title">Customer Pending Dues (Sorted Newest First)</div>
+              <div class="table-responsive">
+                <table>
+                  <thead><tr><th>Customer Name</th><th>Pending Balance</th><th>Action</th></tr></thead>
+                  <tbody id="custPendingTbody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">Supplier Outstanding Payables</div>
+              <div class="table-responsive">
+                <table>
+                  <thead><tr><th>Supplier</th><th>Pending</th><th>Action</th></tr></thead>
+                  <tbody id="suppPendingTbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- MODULE 9: EXPENSES -->
+        <section id="modExpenses" class="module-view" style="display:none;">
+          <div class="card">
+            <div class="card-title">
+              Expense Tracker
+              <button class="btn btn-primary btn-sm" id="btnOpenAddExpense"><i class="fa-solid fa-plus"></i> Record Expense</button>
+            </div>
+            <div class="table-responsive">
+              <table>
+                <thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Remarks</th><th>Actions</th></tr></thead>
+                <tbody id="expensesTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- MODULE 10: TRANSACTIONS -->
+        <section id="modTransactions" class="module-view" style="display:none;">
+          <div class="card">
+            <div class="card-title" style="flex-wrap: wrap; gap: 1rem;">
+              <span>Transaction Audit Log</span>
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <label for="txnDateFilter" style="font-size: 0.85rem; font-weight: 600; margin: 0;">Date Filter:</label>
+                <input type="date" id="txnDateFilter" class="form-control" style="width: auto; padding: 0.4rem 0.6rem; font-size: 0.85rem;">
+                <button class="btn btn-outline btn-sm" id="btnResetTxnDate" title="Clear Date Filter">All Time</button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table>
+                <thead><tr><th>Date</th><th>Type</th><th>Reference</th><th>Amount</th><th>Payment Mode</th><th>Remarks</th><th>Actions</th></tr></thead>
+                <tbody id="transactionsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- MODULE 11: REPORTS -->
+        <section id="modReports" class="module-view" style="display:none;">
+          <div class="card">
+            <div class="card-title">Business Reports Generator</div>
+            <div class="form-row" style="margin-bottom:1rem;">
+              <div class="form-group"><label>Filter Range</label><select id="reportRange" class="form-control"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></div>
+              <div class="form-group" style="align-self:flex-end;"><button class="btn btn-primary" id="btnExportExcel"><i class="fa-solid fa-file-excel"></i> Export Excel</button> <button class="btn btn-secondary" id="btnExportPDF"><i class="fa-solid fa-file-pdf"></i> Export PDF</button></div>
+            </div>
+            <div class="table-responsive">
+              <table id="reportTable">
+                <thead><tr><th>Bill/Txn No</th><th>Date</th><th>Type</th><th>Customer/Entity</th><th>Total Amount</th><th>Status</th></tr></thead>
+                <tbody id="reportsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- MODULE 12: BACKUP & RESTORE / GOOGLE SHEETS SYNC -->
+        <section id="modBackup" class="module-view" style="display:none;">
+          <div class="card">
+            <div class="card-title">Google Sheets Hybrid Background Sync</div>
+            <p style="margin-bottom:1rem; color:var(--text-muted);">
+              Data is saved instantly to LocalStorage for zero-latency UI rendering, and asynchronously pushed/pulled to Google Sheets in the background every 5 minutes.
+            </p>
+            <div class="form-group">
+              <label>Google Apps Script Web App Endpoint URL</label>
+              <input type="url" id="sheetApiUrl" class="form-control" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+            </div>
+            <div style="display:flex; gap:0.5rem; margin-bottom:1.5rem;">
+              <button class="btn btn-primary" id="btnSaveSheetUrl"><i class="fa-solid fa-floppy-disk"></i> Save Web App URL</button>
+              <button class="btn btn-secondary" id="btnManualSync"><i class="fa-solid fa-rotate"></i> Manual Sync Now</button>
+            </div>
+          </div>
+
+          <div class="card">
+  <div class="card-title">Database Backup & Recovery</div>
+  <p style="margin-bottom:1rem; color:var(--text-muted);">Export complete database to Excel or restore state from an Excel file.</p>
+  <div style="display:flex; gap:1rem;">
+    <button class="btn btn-primary" id="btnExportBackup"><i class="fa-solid fa-download"></i> Export Excel Backup</button>
+    <button class="btn btn-outline" id="btnTriggerImport"><i class="fa-solid fa-upload"></i> Restore Excel Backup</button>
+    <input type="file" id="fileImportBackup" accept=".xlsx, .xls" style="display:none;">
+  </div>
+</div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- MODALS -->
+
+  <!-- ADD FRUIT MODAL -->
+  <div class="modal-overlay" id="modalFruit">
+    <div class="modal">
+      <div class="modal-header"><div class="modal-title" id="fruitModalTitle">Add New Fruit</div><i class="fa-solid fa-xmark modal-close" style="cursor:pointer;"></i></div>
+      <form id="formFruit">
+        <input type="hidden" id="fruitId">
+        <div class="form-group"><label>Fruit Name *</label><input type="text" id="fruitName" class="form-control" required></div>
+        <div class="form-row">
+          <div class="form-group"><label>Category</label><input type="text" id="fruitCat" class="form-control" value="Fresh Fruits"></div>
+          <div class="form-group"><label>Unit</label><select id="fruitUnit" class="form-control"><option value="Kg">Kg</option><option value="Dozen">Dozen</option><option value="Piece">Piece</option><option value="Box">Box</option></select></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Purchase Price (₹)</label><input type="number" step="0.01" id="fruitCost" class="form-control" required min="0"></div>
+          <div class="form-group"><label>Selling Price (₹)</label><input type="number" step="0.01" id="fruitPrice" class="form-control" required min="0"></div>
+        </div>
+        <div class="form-group"><label>Initial Stock Qty</label><input type="number" step="0.01" id="fruitQty" class="form-control" value="0" min="0"></div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Save Fruit</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADD CUSTOM ITEM POS MODAL -->
+  <div class="modal-overlay" id="modalCustomItem">
+    <div class="modal">
+      <div class="modal-header"><div class="modal-title">Add Custom Item (Current Order Only)</div><i class="fa-solid fa-xmark modal-close" style="cursor:pointer;"></i></div>
+      <form id="formCustomItem">
+        <div class="form-group"><label>Item Name *</label><input type="text" id="custItemName" class="form-control" required></div>
+        <div class="form-row">
+          <div class="form-group"><label>Qty</label><input type="number" step="0.01" id="custItemQty" class="form-control" value="1" required min="0.1"></div>
+          <div class="form-group"><label>Unit</label><input type="text" id="custItemUnit" class="form-control" value="Kg"></div>
+        </div>
+        <div class="form-group"><label>Rate (₹)</label><input type="number" step="0.01" id="custItemRate" class="form-control" required min="0"></div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Add to Cart</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- CHECKOUT / PLACE ORDER MODAL -->
+  <div class="modal-overlay" id="modalCheckout">
+    <div class="modal">
+      <div class="modal-header"><div class="modal-title">Complete Order</div><i class="fa-solid fa-xmark modal-close" style="cursor:pointer;"></i></div>
+      <form id="formCheckout">
+        <div class="form-group">
+          <label>Customer Name *</label>
+          <input type="text" id="posCustName" class="form-control" placeholder="Search / New Customer..." required autocomplete="off">
+          <div class="suggestions" id="custSuggestions"></div>
+        </div>
+        <div class="form-group"><label>Phone Number</label><input type="tel" id="posCustPhone" class="form-control"></div>
+        <div class="form-row">
+          <div class="form-group"><label>Payment Mode</label><select id="posPayMode" class="form-control"><option value="Cash">Cash</option><option value="UPI">UPI</option><option value="Credit">Credit</option></select></div>
+          <div class="form-group"><label>Discount (₹)</label><input type="number" step="0.01" id="posDiscount" class="form-control" value="0"></div>
+        </div>
+        <div class="form-group"><label>Amount Paid (₹)</label><input type="number" step="0.01" id="posPaid" class="form-control" required></div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Confirm & Generate Bill</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- INVOICE DISPLAY MODAL -->
+  <div class="modal-overlay" id="modalInvoice">
+    <div class="modal" style="max-width:650px;">
+      <div class="modal-header"><div class="modal-title">Order Invoice</div><i class="fa-solid fa-xmark modal-close" style="cursor:pointer;"></i></div>
+      <div id="printableInvoice">
+        <div style="text-align:center; border-bottom:2px dashed var(--border-color); padding-bottom:1rem; margin-bottom:1rem;">
+          <h2 style="color:var(--primary);">LKM & Narasimhalu Fruits Merchant</h2>
+          <p style="font-size:0.85rem; color:var(--text-muted);">Theen Kandil, Raichur</p>
+          <p style="font-size:0.85rem; color:var(--text-muted);">Ph: +91 9741682090/9110407354</p>
+          <div style="margin-top:0.5rem; font-weight:bold;" id="invBillNo">LKM000000</div>
+          <div style="font-size:0.8rem; color:var(--text-muted);" id="invDate"></div>
+        </div>
+        <div style="margin-bottom:1rem; font-size:0.9rem;">
+          <div><strong>Customer:</strong> <span id="invCust"></span></div>
+          <div><strong>Phone:</strong> <span id="invPhone"></span></div>
+        </div>
+        <table style="width:100%; margin-bottom:1rem;">
+          <thead><tr><th>Item</th><th>Qty</th><th>Rate</th><th style="text-align:right;">Total</th></tr></thead>
+          <tbody id="invItemsTbody"></tbody>
+        </table>
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.25rem; font-size:0.9rem;">
+          <div>Subtotal: ₹<span id="invSub">0.00</span></div>
+          <div>Discount: ₹<span id="invDisc">0.00</span></div>
+          <div style="font-size:1.1rem; font-weight:bold; color:var(--primary);">Grand Total: ₹<span id="invGrand">0.00</span></div>
+          <div>Paid: ₹<span id="invPaid">0.00</span></div>
+          <div style="color:var(--danger);">Pending Due: ₹<span id="invPending">0.00</span></div>
+        </div>
+      </div>
+      <div style="display:flex; gap:0.5rem; margin-top:1.5rem;" class="no-print">
+        <button class="btn btn-primary" id="btnPrintInv"><i class="fa-solid fa-print"></i> Print</button>
+        <button class="btn btn-secondary" id="btnPdfInv"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+        <button class="btn btn-outline" id="btnCloseInv">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GENERIC ENTITY MODALS -->
+  <div class="modal-overlay" id="modalPurchase">
+    <div class="modal">
+      <div class="modal-header"><div class="modal-title">Record Purchase</div><i class="fa-solid fa-xmark modal-close" style="cursor:pointer;"></i></div>
+      <form id="formPurchase">
+        <div class="form-group"><label>Supplier *</label><select id="purSupplier" class="form-control" required></select></div>
+        <div class="form-group"><label>Supplier Invoice No</label><input type="text" id="purInvNo" class="form-control" required></div>
+        <div class="form-group"><label>Fruit Item *</label><select id="purFruit" class="form-control" required></select></div>
+        <div class="form-row">
+          <div class="form-group"><label>Quantity</label><input type="number" step="0.01" id="purQty" class="form-control" required min="0.1"></div>
+          <div class="form-group"><label>Purchase Rate (₹)</label><input type="number" step="0.01" id="purRate" class="form-control" required min="0"></div>
+        </div>
+        <div class="form-group"><label>Amount Paid (₹)</label><input type="number" step="0.01" id="purPaid" class="form-control" required min="0"></div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Record Purchase</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalSupplier">
+    <div class="modal">
+      <div class="modal-header"><div class="modal-title">Add Supplier</div><i class="fa-solid fa-xmark modal-close" style="cursor:pointer;"></i></div>
+      <form id="formSupplier">
+        <div class="form-group"><label>Supplier Name *</label><input type="text" id="suppName" class="form-control" required></div>
+        <div class="form-group"><label>Phone</label><input type="tel" id="suppPhone" class="form-control"></div>
+        <div class="form-group"><label>Address</label><input type="text" id="suppAddress" class="form-control"></div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Save Supplier</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalCustomer">
+    <div class="modal">
+      <div class="modal-header"><div class="modal-title">Add Customer</div><i class="fa-solid fa-xmark modal-close" style="cursor:pointer;"></i></div>
+      <form id="formCustomer">
+        <div class="form-group"><label>Customer Name *</label><input type="text" id="custName" class="form-control" required></div>
+        <div class="form-group"><label>Phone Number *</label><input type="tel" id="custPhone" class="form-control" required></div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Save Customer</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalExpense">
+    <div class="modal">
+      <div class="modal-header"><div class="modal-title">Record Expense</div><i class="fa-solid fa-xmark modal-close" style="cursor:pointer;"></i></div>
+      <form id="formExpense">
+        <div class="form-group"><label>Category *</label><select id="expCat" class="form-control"><option value="Transport">Transport</option><option value="Petrol">Petrol</option><option value="Salary">Salary</option><option value="Electricity">Electricity</option><option value="Packing">Packing</option><option value="Misc">Misc</option></select></div>
+        <div class="form-group"><label>Amount (₹) *</label><input type="number" step="0.01" id="expAmount" class="form-control" required min="0.01"></div>
+        <div class="form-group"><label>Remarks</label><input type="text" id="expRemarks" class="form-control"></div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Save Expense</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalPayClear">
+    <div class="modal">
+      <div class="modal-header"><div class="modal-title" id="payClearTitle">Clear Pending Payment</div><i class="fa-solid fa-xmark modal-close" style="cursor:pointer;"></i></div>
+      <form id="formPayClear">
+        <input type="hidden" id="payClearType">
+        <input type="hidden" id="payClearTargetId">
+        <div class="form-group"><label>Pending Due: ₹<span id="lblPayClearDue">0.00</span></label></div>
+        <div class="form-group"><label>Payment Amount (₹) *</label><input type="number" step="0.01" id="payClearAmt" class="form-control" required min="0.01"></div>
+        <div class="form-group"><label>Payment Mode</label><select id="payClearMode" class="form-control"><option value="Cash">Cash</option><option value="UPI">UPI</option></select></div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Submit Payment</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- CUSTOMER TRANSACTIONS POPUP MODAL -->
+  <div class="modal-overlay" id="modalCustomerTransactions">
+    <div class="modal" style="max-width: 800px;">
+      <div class="modal-header">
+        <div class="modal-title" id="custTxnModalTitle">Customer Transactions</div>
+        <i class="fa-solid fa-xmark modal-close" style="cursor:pointer;"></i>
+      </div>
+      <div class="table-responsive" style="max-height: 350px; overflow-y: auto; margin-bottom: 1rem;">
+        <table>
+          <thead>
+            <tr>
+              <th>Order No</th>
+              <th>Date</th>
+              <th>Grand Total</th>
+              <th>Paid</th>
+              <th>Pending Balance</th>
+              <th>Total Pending Balance</th>
+            </tr>
+          </thead>
+          <tbody id="custTxnTbody"></tbody>
+        </table>
+      </div>
+      <!-- Summary Footer Section -->
+      <div style="background: var(--bg-color); padding: 1rem; border-radius: 6px; display: flex; justify-content: space-around; align-items: center; font-weight: 700; margin-bottom: 1rem;">
+        <div>Total: <span id="custTxnTotal" class="text-main">₹0.00</span></div>
+        <div>Paid: <span id="custTxnPaid" class="text-green">₹0.00</span></div>
+        <div>Pending: <span id="custTxnPending" class="text-red">₹0.00</span></div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <button class="btn btn-secondary" id="btnCustTxnWhatsApp" style="background-color: #25D366; color: white; display: none;">
+          <i class="fa-brands fa-whatsapp"></i> Send Transactions via WhatsApp
+        </button>
+        <button class="btn btn-outline modal-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION LOGIC ENGINE -->
+  <script>
+    'use strict';
+
+    /* --- INITIAL SEED DATA FOR FRESH INSTANCES --- */
+    const INITIAL_SEED = {
+      users: [{ username: 'admin', password: 'admin123', name: 'Master Admin' }],
+      currentUser: null,
+      inventory: [
+        { id: 'f1', name: 'Red Apple', category: 'Fresh Fruits', unit: 'Kg', qty: 45, costPrice: 120, sellPrice: 160, purchasedQty: 50, soldQty: 5 },
+        { id: 'f2', name: 'Robusta Banana', category: 'Fresh Fruits', unit: 'Dozen', qty: 30, costPrice: 35, sellPrice: 50, purchasedQty: 40, soldQty: 10 },
+        { id: 'f3', name: 'Nagpur Orange', category: 'Fresh Fruits', unit: 'Kg', qty: 4, costPrice: 60, sellPrice: 90, purchasedQty: 20, soldQty: 16 }
+      ],
+      purchases: [],
+      suppliers: [{ id: 's1', name: 'Himalayan Orchards', phone: '9876500001', address: 'Shimla' }],
+      customers: [
+        { id: 'c1', name: 'Ramesh Kumar', phone: '9123456789', dateCreated: '2026-07-28T10:00:00Z' },
+        { id: 'c2', name: 'Alice Smith', phone: '9876543210', dateCreated: '2026-08-01T14:30:00Z' }
+      ],
+      orders: [],
+      sales: [],
+      transactions: [],
+      expenses: [],
+      supplierPayments: [],
+      customerLedger: [],
+      supplierLedger: [],
+      billCounter: 101,
+      sheetApiUrl: ''
+    };
+
+    /* --- STORAGE SERVICE MODULE (HYBRID LOCALSTORAGE & GOOGLE SHEETS) --- */
+    class StorageService {
+      static get(key) {
+        const data = localStorage.getItem(`LKM_${key}`);
+        return data ? JSON.parse(data) : INITIAL_SEED[key] || [];
+      }
+
+      static set(key, value, silent = false) {
+        localStorage.setItem(`LKM_${key}`, JSON.stringify(value));
+        if (key !== 'currentUser' && !silent) {
+          GoogleSheetSync.triggerBackgroundSync();
+        }
+      }
+
+      static init() {
+        Object.keys(INITIAL_SEED).forEach(k => {
+          if (!localStorage.getItem(`LKM_${k}`)) {
+            localStorage.setItem(`LKM_${k}`, JSON.stringify(INITIAL_SEED[k]));
+          }
+        });
+      }
+
+      static getFullBackup() {
+        const data = {};
+        Object.keys(INITIAL_SEED).forEach(k => {
+          if (k !== 'currentUser') data[k] = StorageService.get(k);
+        });
+        return data;
+      }
+
+      static restoreFullBackup(data) {
+        Object.keys(data).forEach(k => {
+          StorageService.set(k, data[k], true);
+        });
+      }
+    }
+
+    /* --- GOOGLE SHEETS ASYNC BACKGROUND SYNC MODULE --- */
+    class GoogleSheetSync {
+      static isSyncing = false;
+
+      static updateStatusUI(status, text) {
+        const tag = document.getElementById('syncStatusTag');
+        const txt = document.getElementById('syncText');
+        if (!tag || !txt) return;
+
+        if (status === 'syncing') {
+          tag.className = 'sync-status syncing';
+          txt.innerText = 'Syncing...';
+        } else if (status === 'success') {
+          tag.className = 'sync-status';
+          txt.innerText = `Synced (${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})`;
+        } else {
+          tag.className = 'sync-status syncing';
+          txt.innerText = 'Sync Offline';
+        }
+      }
+
+      static async triggerBackgroundSync() {
+        const url = StorageService.get('sheetApiUrl');
+        if (!url || GoogleSheetSync.isSyncing) return;
+
+        GoogleSheetSync.isSyncing = true;
+        GoogleSheetSync.updateStatusUI('syncing');
+
+        let ok = false;
+        try {
+          const payload = StorageService.getFullBackup();
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json().catch(() => null);
+          ok = !!(data && data.status === 'ok');
+          GoogleSheetSync.updateStatusUI(ok ? 'success' : 'error');
+        } catch (err) {
+          console.warn('Background sync failed:', err);
+          GoogleSheetSync.updateStatusUI('error');
+        } finally {
+          GoogleSheetSync.isSyncing = false;
+        }
+        return ok;
+      }
+
+      static async pullFromSheets() {
+        const url = StorageService.get('sheetApiUrl');
+        if (!url) return false;
+
+        GoogleSheetSync.updateStatusUI('syncing');
+        try {
+          const res = await fetch(url);
+          const data = await res.json();
+          if (data && typeof data === 'object') {
+            StorageService.restoreFullBackup(data);
+            GoogleSheetSync.updateStatusUI('success');
+            return true;
+          }
+        } catch (err) {
+          console.warn('Pull from sheets failed:', err);
+          GoogleSheetSync.updateStatusUI('error');
+        }
+        return false;
+      }
+    }
+
+    /* --- APPLICATION STATE & ENGINE CLASS --- */
+    class ERPApp {
+      constructor() {
+        StorageService.init();
+        this.cart = [];
+        this.charts = {};
+        this.currentInvoice = null;
+        this.editingOrderNo = null; // Add this line to track the edited order
+        this.initDOM();
+        this.bindEvents();
+        this.checkAuth();
+        this.initAutoSync();
+      }
+
+      initDOM() {
+        this.dom = {
+          auth: document.getElementById('authContainer'),
+          app: document.getElementById('appContainer'),
+          spinner: document.getElementById('spinnerOverlay'),
+          toast: document.getElementById('toastContainer'),
+          headerTitle: document.getElementById('headerTitle'),
+          posProductGrid: document.getElementById('posProductGrid'),
+          posCartItems: document.getElementById('posCartItems'),
+          cartSubtotal: document.getElementById('cartSubtotal'),
+          posOrderNo: document.getElementById('posOrderNo')
+        };
+      }
+
+      // Push local changes to Drive first (server-side merge keeps everyone's
+      // records), then pull the merged result back so this device sees
+      // whatever changed elsewhere too. Runs on every page load/refresh and
+      // then again every 5 minutes while the app stays open.
+      async syncWithDrive(showToast = false) {
+        const url = StorageService.get('sheetApiUrl');
+        if (!url) return;
+
+        this.showSpinner(true);
+        if (showToast) this.toast('Syncing with Google Drive...');
+
+        await GoogleSheetSync.triggerBackgroundSync(); // push + merge on the server
+        await GoogleSheetSync.pullFromSheets();          // pull back the merged data
+
+        this.refreshAll();
+        this.showSpinner(false);
+      }
+
+      initAutoSync() {
+        // Initial sync on page load/refresh
+        this.syncWithDrive(true);
+
+        setInterval(() => {
+          this.syncWithDrive(false);
+        }, 300000);
+      }
+
+      showSpinner(show = true) {
+        this.dom.spinner.classList.toggle('active', show);
+      }
+
+      toast(message, type = 'success') {
+        const div = document.createElement('div');
+        div.className = `toast toast-${type}`;
+        div.innerHTML = `<i class="fa-solid fa-${type==='success'?'circle-check':'triangle-exclamation'}"></i> ${message}`;
+        this.dom.toast.appendChild(div);
+        setTimeout(() => div.remove(), 3500);
+      }
+
+      checkAuth() {
+        const user = StorageService.get('currentUser');
+        if (user) {
+          this.dom.auth.style.display = 'none';
+          this.dom.app.style.display = 'flex';
+          this.refreshAll();
+        } else {
+          this.dom.auth.style.display = 'flex';
+          this.dom.app.style.display = 'none';
+        }
+      }
+
+      bindEvents() {
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const u = document.getElementById('loginUser').value;
+          const p = document.getElementById('loginPass').value;
+          const users = StorageService.get('users');
+          const matched = users.find(x => x.username === u && x.password === p);
+          if (matched) {
+            StorageService.set('currentUser', matched);
+            this.checkAuth();
+            this.toast('Login successful');
+            this.syncWithDrive(true);
+          } else {
+            this.toast('Invalid credentials', 'error');
+          }
+        });
+// Load Order for Editing
+        document.getElementById('btnLoadOrder').addEventListener('click', () => {
+          const orderNo = document.getElementById('posOrderNoSearch').value.trim();
+          if (!orderNo) return this.toast('Please enter an order number', 'error');
+          this.loadOrderToCart(orderNo);
+        });
+        document.getElementById('btnLogout').addEventListener('click', () => {
+          StorageService.set('currentUser', null);
+          this.checkAuth();
+        });
+
+        const dateFilterInput = document.getElementById('orderDateFilter');
+        if (dateFilterInput) {
+          dateFilterInput.value = new Date().toISOString().split('T')[0];
+          dateFilterInput.addEventListener('change', () => this.renderAllOrders());
+        }
+
+        const resetDateBtn = document.getElementById('btnResetOrderDate');
+        if (resetDateBtn) {
+          resetDateBtn.addEventListener('click', () => {
+            document.getElementById('orderDateFilter').value = '';
+            this.renderAllOrders();
+          });
+        }
+
+        const txnDateFilter = document.getElementById('txnDateFilter');
+        if (txnDateFilter) {
+          txnDateFilter.addEventListener('change', () => this.renderTransactions());
+        }
+
+        const resetTxnDateBtn = document.getElementById('btnResetTxnDate');
+        if (resetTxnDateBtn) {
+          resetTxnDateBtn.addEventListener('click', () => {
+            document.getElementById('txnDateFilter').value = '';
+            this.renderTransactions();
+          });
+        }
+
+        const customerSearchInput = document.getElementById('customerSearchInput');
+        if (customerSearchInput) {
+          customerSearchInput.addEventListener('input', () => this.renderCustomers());
+        }
+
+        document.getElementById('btnThemeToggle').addEventListener('click', () => {
+          document.body.classList.toggle('dark-mode');
+        });
+
+        document.querySelectorAll('.sidebar-menu a').forEach(link => {
+          link.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.querySelectorAll('.sidebar-menu a').forEach(a => a.classList.remove('active'));
+            link.classList.add('active');
+            const target = link.dataset.target;
+            document.querySelectorAll('.module-view').forEach(m => m.style.display = 'none');
+            document.getElementById(target).style.display = 'block';
+            this.dom.headerTitle.innerText = link.innerText.trim();
+            this.refreshModule(target);
+          });
+        });
+
+        document.querySelectorAll('.modal-close, .modal-overlay').forEach(el => {
+          el.addEventListener('click', (e) => {
+            if (e.target === el) {
+              document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+            }
+          });
+        });
+
+        document.getElementById('btnOpenAddFruit').addEventListener('click', () => {
+          document.getElementById('formFruit').reset();
+          document.getElementById('fruitId').value = '';
+          document.getElementById('fruitModalTitle').innerText = 'Add New Fruit';
+          document.getElementById('modalFruit').classList.add('active');
+        });
+
+        document.getElementById('formFruit').addEventListener('submit', (e) => {
+          e.preventDefault();
+          this.saveFruit();
+        });
+
+        document.getElementById('posSearch').addEventListener('input', (e) => {
+          this.renderPOSProducts(e.target.value, document.getElementById('posOrderNoSearch').value);
+        });
+
+        document.getElementById('posOrderNoSearch').addEventListener('input', (e) => {
+          this.renderPOSProducts(document.getElementById('posSearch').value, e.target.value);
+        });
+
+        document.getElementById('btnOpenCustomItemModal').addEventListener('click', () => {
+          document.getElementById('formCustomItem').reset();
+          document.getElementById('modalCustomItem').classList.add('active');
+        });
+
+        document.getElementById('formCustomItem').addEventListener('submit', (e) => {
+          e.preventDefault();
+          this.addCustomCartItem();
+        });
+
+        document.getElementById('btnCheckout').addEventListener('click', () => {
+          if (this.cart.length === 0) return this.toast('Cart is empty', 'error');
+          document.getElementById('formCheckout').reset();
+          document.getElementById('modalCheckout').classList.add('active');
+        });
+
+        const custInput = document.getElementById('posCustName');
+        custInput.addEventListener('input', () => {
+          const val = custInput.value.toLowerCase();
+          const list = StorageService.get('customers').filter(c => c.name.toLowerCase().includes(val));
+          const box = document.getElementById('custSuggestions');
+          box.innerHTML = '';
+          if (val && list.length) {
+            box.style.display = 'block';
+            list.forEach(c => {
+              const item = document.createElement('div');
+              item.className = 'suggestion-item';
+              item.innerText = `${c.name} (${c.phone||'N/A'})`;
+              item.onclick = () => {
+                custInput.value = c.name;
+                document.getElementById('posCustPhone').value = c.phone || '';
+                box.style.display = 'none';
+              };
+              box.appendChild(item);
+            });
+          } else box.style.display = 'none';
+        });
+
+        document.getElementById('formCheckout').addEventListener('submit', (e) => {
+          e.preventDefault();
+          this.processOrder();
+        });
+
+        document.getElementById('btnPrintInv').addEventListener('click', () => window.print());
+        document.getElementById('btnPdfInv').addEventListener('click', () => this.generateInvoicePDF());
+        document.getElementById('btnCloseInv').addEventListener('click', () => {
+          document.getElementById('modalInvoice').classList.remove('active');
+        });
+
+        document.getElementById('btnOpenAddPurchase').addEventListener('click', () => this.openPurchaseModal());
+        document.getElementById('formPurchase').addEventListener('submit', (e) => { e.preventDefault(); this.savePurchase(); });
+
+        document.getElementById('btnOpenAddSupplier').addEventListener('click', () => {
+          document.getElementById('formSupplier').reset();
+          document.getElementById('modalSupplier').classList.add('active');
+        });
+        document.getElementById('formSupplier').addEventListener('submit', (e) => { e.preventDefault(); this.saveSupplier(); });
+
+        document.getElementById('btnOpenAddCustomer').addEventListener('click', () => {
+          document.getElementById('formCustomer').reset();
+          document.getElementById('modalCustomer').classList.add('active');
+        });
+        document.getElementById('formCustomer').addEventListener('submit', (e) => { e.preventDefault(); this.saveCustomer(); });
+
+        document.getElementById('btnOpenAddExpense').addEventListener('click', () => {
+          document.getElementById('formExpense').reset();
+          document.getElementById('modalExpense').classList.add('active');
+        });
+        document.getElementById('formExpense').addEventListener('submit', (e) => { e.preventDefault(); this.saveExpense(); });
+
+        document.getElementById('formPayClear').addEventListener('submit', (e) => { e.preventDefault(); this.processPendingPayment(); });
+
+        const savedUrl = StorageService.get('sheetApiUrl');
+        if (savedUrl) document.getElementById('sheetApiUrl').value = savedUrl;
+
+        document.getElementById('btnSaveSheetUrl').addEventListener('click', () => {
+          const url = document.getElementById('sheetApiUrl').value.trim();
+          StorageService.set('sheetApiUrl', url);
+          this.toast('Google Sheet API Endpoint Saved');
+          GoogleSheetSync.triggerBackgroundSync();
+        });
+
+        document.getElementById('btnManualSync').addEventListener('click', async () => {
+          this.showSpinner(true);
+          await GoogleSheetSync.triggerBackgroundSync();
+          await GoogleSheetSync.pullFromSheets();
+          this.refreshAll();
+          this.showSpinner(false);
+          this.toast('Manual Sync Completed');
+        });
+
+        document.getElementById('btnExportBackup').addEventListener('click', () => this.exportBackup());
+        document.getElementById('btnTriggerImport').addEventListener('click', () => document.getElementById('fileImportBackup').click());
+        document.getElementById('fileImportBackup').addEventListener('change', (e) => this.importBackup(e));
+
+        document.getElementById('btnExportExcel').addEventListener('click', () => this.exportExcel());
+        document.getElementById('btnExportPDF').addEventListener('click', () => this.exportPDFReport());
+      }
+
+      refreshAll() {
+        this.renderDashboard();
+        this.renderPOSProducts();
+        this.renderAllOrders();
+        this.renderInventory();
+        this.renderPurchases();
+        this.renderSuppliers();
+        this.renderCustomers();
+        this.renderPending();
+        this.renderExpenses();
+        this.renderTransactions();
+        this.renderReports();
+      }
+
+      refreshModule(modId) {
+        if (modId === 'modDashboard') this.renderDashboard();
+        if (modId === 'modPOS') this.renderPOSProducts();
+        if (modId === 'modAllOrders') this.renderAllOrders();
+        if (modId === 'modInventory') this.renderInventory();
+        if (modId === 'modPurchases') this.renderPurchases();
+        if (modId === 'modSuppliers') this.renderSuppliers();
+        if (modId === 'modCustomers') this.renderCustomers();
+        if (modId === 'modPending') this.renderPending();
+        if (modId === 'modExpenses') this.renderExpenses();
+        if (modId === 'modTransactions') this.renderTransactions();
+        if (modId === 'modReports') this.renderReports();
+      }
+
+      saveFruit() {
+        const id = document.getElementById('fruitId').value || 'f_' + Date.now();
+        const name = document.getElementById('fruitName').value.trim();
+        const category = document.getElementById('fruitCat').value.trim();
+        const unit = document.getElementById('fruitUnit').value;
+        const costPrice = parseFloat(document.getElementById('fruitCost').value);
+        const sellPrice = parseFloat(document.getElementById('fruitPrice').value);
+        const qty = parseFloat(document.getElementById('fruitQty').value) || 0;
+
+        let inv = StorageService.get('inventory');
+        const existingIndex = inv.findIndex(x => x.id === id);
+
+        const dup = inv.find(x => x.name.toLowerCase() === name.toLowerCase() && x.id !== id);
+        if (dup) return this.toast('Fruit with this name already exists', 'error');
+
+        if (existingIndex > -1) {
+          inv[existingIndex] = { ...inv[existingIndex], name, category, unit, costPrice, sellPrice, qty };
+        } else {
+          inv.push({ id, name, category, unit, costPrice, sellPrice, qty, purchasedQty: qty, soldQty: 0 });
+        }
+
+        StorageService.set('inventory', inv);
+        document.getElementById('modalFruit').classList.remove('active');
+        this.toast('Fruit saved successfully');
+        this.refreshAll();
+      }
+
+      deleteFruit(id) {
+        const inv = StorageService.get('inventory');
+        const fruit = inv.find(x => x.id === id);
+        if (!fruit) return;
+
+        if (confirm(`Are you sure you want to delete "${fruit.name}"?`)) {
+          const filtered = inv.filter(x => x.id !== id);
+          StorageService.set('inventory', filtered);
+          this.toast('Fruit deleted');
+          this.refreshAll();
+        }
+      }
+
+      renderInventory() {
+        const inv = StorageService.get('inventory');
+        const tbody = document.getElementById('inventoryTbody');
+        tbody.innerHTML = '';
+        inv.forEach(item => {
+          const val = item.qty * item.costPrice;
+          const statusBadge = item.qty <= 5 ? '<span class="badge badge-red">Low Stock</span>' : '<span class="badge badge-green">Healthy</span>';
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${item.name}</strong></td>
+            <td>${item.category}</td>
+            <td>${item.unit}</td>
+            <td><strong>${item.qty}</strong></td>
+            <td>${item.purchasedQty || 0}</td>
+            <td>${item.soldQty || 0}</td>
+            <td>₹${item.costPrice.toFixed(2)}</td>
+            <td>₹${item.sellPrice.toFixed(2)}</td>
+            <td>₹${val.toFixed(2)}</td>
+            <td>${statusBadge}</td>
+            <td>
+              <button class="btn btn-outline btn-sm edit-fruit" data-id="${item.id}"><i class="fa-solid fa-pen"></i></button>
+              <button class="btn btn-danger btn-sm del-fruit" data-id="${item.id}"><i class="fa-solid fa-trash"></i></button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('.edit-fruit').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const item = inv.find(x => x.id === btn.dataset.id);
+            if (item) {
+              document.getElementById('fruitId').value = item.id;
+              document.getElementById('fruitName').value = item.name;
+              document.getElementById('fruitCat').value = item.category;
+              document.getElementById('fruitUnit').value = item.unit;
+              document.getElementById('fruitCost').value = item.costPrice;
+              document.getElementById('fruitPrice').value = item.sellPrice;
+              document.getElementById('fruitQty').value = item.qty;
+              document.getElementById('fruitModalTitle').innerText = 'Edit Fruit';
+              document.getElementById('modalFruit').classList.add('active');
+            }
+          });
+        });
+
+        tbody.querySelectorAll('.del-fruit').forEach(btn => {
+          btn.addEventListener('click', () => this.deleteFruit(btn.dataset.id));
+        });
+      }
+
+      renderPOSProducts(query = '', orderNoQuery = '') {
+        const inv = StorageService.get('inventory').filter(x => x.qty > 0 && x.name.toLowerCase().includes(query.toLowerCase()));
+        this.dom.posProductGrid.innerHTML = '';
+
+        const counter = StorageService.get('billCounter');
+        let orderNoToDisplay = `LKM${String(counter).padStart(6, '0')}`;
+        
+        // Use the editing order number if we are actively editing
+        if (this.editingOrderNo) {
+          orderNoToDisplay = this.editingOrderNo;
+        } else if (orderNoQuery) {
+          const matchingOrder = StorageService.get('orders').find(o => o.orderNo.toLowerCase().includes(orderNoQuery.toLowerCase()));
+          if (matchingOrder) {
+            orderNoToDisplay = matchingOrder.orderNo;
+          } else {
+            orderNoToDisplay = orderNoQuery.toUpperCase();
+          }
+        }
+        this.dom.posOrderNo.innerText = orderNoToDisplay;
+        
+        // ... (Keep the rest of the renderPOSProducts code unchanged)
+
+        inv.forEach(item => {
+          const card = document.createElement('div');
+          card.className = 'product-card';
+          card.innerHTML = `
+            <div class="product-img"><i class="fa-solid fa-lemon"></i></div>
+            <div class="product-details">
+              <div>
+                <div style="font-weight:700;">${item.name}</div>
+                <div style="font-size:0.8rem; color:var(--text-muted);">Stock: ${item.qty} ${item.unit}</div>
+                <div style="font-weight:800; color:var(--primary); margin-top:0.3rem;">₹${item.sellPrice.toFixed(2)} / ${item.unit}</div>
+              </div>
+              <button class="btn btn-primary btn-sm add-cart-btn" style="margin-top:0.8rem; justify-content:center;"><i class="fa-solid fa-cart-plus"></i> Add</button>
+            </div>
+          `;
+          card.querySelector('.add-cart-btn').onclick = () => this.addToCart(item);
+          this.dom.posProductGrid.appendChild(card);
+        });
+      }
+loadOrderToCart(orderNo) {
+        const orders = StorageService.get('orders');
+        const order = orders.find(o => o.orderNo.toUpperCase() === orderNo.toUpperCase() && o.status !== 'Cancelled');
+
+        if (!order) return this.toast('Active order not found', 'error');
+
+        // Copy order items into the cart
+        this.cart = JSON.parse(JSON.stringify(order.items)); 
+        this.editingOrderNo = order.orderNo;
+        this.dom.posOrderNo.innerText = order.orderNo;
+
+        // Pre-fill the checkout modal with existing order data
+        document.getElementById('posCustName').value = order.customerName || '';
+        document.getElementById('posCustPhone').value = order.phone || '';
+        document.getElementById('posPayMode').value = order.paymentMode || 'Cash';
+        document.getElementById('posDiscount').value = order.discount || 0;
+        
+        this.renderCart();
+        this.toast(`Order ${order.orderNo} loaded for editing`, 'success');
+      }
+      addToCart(item) {
+        const existing = this.cart.find(x => x.id === item.id);
+        if (existing) {
+          if (existing.qty + 1 > item.qty) return this.toast('Exceeds available stock', 'error');
+          existing.qty += 1;
+        } else {
+          this.cart.push({ id: item.id, name: item.name, rate: item.sellPrice, unit: item.unit, qty: 1, isCustom: false });
+        }
+        this.renderCart();
+      }
+
+      addCustomCartItem() {
+        const name = document.getElementById('custItemName').value.trim();
+        const qty = parseFloat(document.getElementById('custItemQty').value);
+        const unit = document.getElementById('custItemUnit').value;
+        const rate = parseFloat(document.getElementById('custItemRate').value);
+
+        this.cart.push({ id: 'c_' + Date.now(), name, rate, unit, qty, isCustom: true });
+        document.getElementById('modalCustomItem').classList.remove('active');
+        this.renderCart();
+      }
+
+      renderCart() {
+        this.dom.posCartItems.innerHTML = '';
+        let subtotal = 0;
+
+        this.cart.forEach((item, index) => {
+          const total = item.qty * item.rate;
+          subtotal += total;
+          const div = document.createElement('div');
+          div.className = 'cart-item';
+          div.innerHTML = `
+            <div>
+              <div style="font-weight:600; font-size:0.85rem;">${item.name}</div>
+              <div style="font-size:0.75rem; color:var(--text-muted);">₹${item.rate} / ${item.unit}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.3rem;">
+              <button class="btn btn-outline btn-sm btn-dec" style="padding:0.2rem 0.5rem;">-</button>
+              <span style="font-size:0.85rem; font-weight:700;">${item.qty}</span>
+              <button class="btn btn-outline btn-sm btn-inc" style="padding:0.2rem 0.5rem;">+</button>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-weight:700; font-size:0.85rem;">₹${total.toFixed(2)}</div>
+              <i class="fa-solid fa-trash btn-del" style="color:var(--danger); cursor:pointer; font-size:0.75rem;"></i>
+            </div>
+          `;
+          div.querySelector('.btn-dec').onclick = () => { if(item.qty > 1) item.qty--; else this.cart.splice(index, 1); this.renderCart(); };
+          div.querySelector('.btn-inc').onclick = () => { item.qty++; this.renderCart(); };
+          div.querySelector('.btn-del').onclick = () => { this.cart.splice(index, 1); this.renderCart(); };
+          this.dom.posCartItems.appendChild(div);
+        });
+
+        this.dom.cartSubtotal.innerText = `₹${subtotal.toFixed(2)}`;
+        document.getElementById('posPaid').value = subtotal.toFixed(2);
+      }
+
+      processOrder() {
+        const custName = document.getElementById('posCustName').value.trim();
+        const custPhone = document.getElementById('posCustPhone').value.trim();
+        const payMode = document.getElementById('posPayMode').value;
+        const discount = parseFloat(document.getElementById('posDiscount').value) || 0;
+        const paidAmount = parseFloat(document.getElementById('posPaid').value) || 0;
+
+        const subtotal = this.cart.reduce((a, b) => a + (b.qty * b.rate), 0);
+        const grandTotal = subtotal - discount;
+        const pendingAmount = grandTotal - paidAmount;
+
+        let customers = StorageService.get('customers');
+        let cust = customers.find(c => c.name.toLowerCase() === custName.toLowerCase());
+        if (!cust) {
+          cust = { id: 'c_' + Date.now(), name: custName, phone: custPhone, dateCreated: new Date().toISOString() };
+          customers.push(cust);
+          StorageService.set('customers', customers);
+        } else if (custPhone && !cust.phone) {
+          cust.phone = custPhone;
+          StorageService.set('customers', customers);
+        }
+
+        let inv = StorageService.get('inventory');
+        let orders = StorageService.get('orders');
+        const txns = StorageService.get('transactions');
+        let orderNo, finalOrder;
+
+        if (this.editingOrderNo) {
+          // --- UPDATE EXISTING ORDER LOGIC ---
+          orderNo = this.editingOrderNo;
+          const existingOrderIndex = orders.findIndex(o => o.orderNo === orderNo);
+          
+          if (existingOrderIndex > -1) {
+            const existingOrder = orders[existingOrderIndex];
+            
+            // 1. Rollback inventory from the old items
+            existingOrder.items.forEach(oldItem => {
+              if (!oldItem.isCustom) {
+                const stItem = inv.find(x => x.id === oldItem.id);
+                if (stItem) {
+                  stItem.qty += oldItem.qty;
+                  stItem.soldQty = Math.max(0, (stItem.soldQty || 0) - oldItem.qty);
+                }
+              }
+            });
+
+            // 2. Deduct inventory for the newly updated cart
+            this.cart.forEach(cItem => {
+              if (!cItem.isCustom) {
+                const stItem = inv.find(x => x.id === cItem.id);
+                if (stItem) {
+                  stItem.qty -= cItem.qty;
+                  stItem.soldQty = (stItem.soldQty || 0) + cItem.qty;
+                }
+              }
+            });
+
+            // Calculate incremental payment for accurate transaction logging
+            const incrementalPayment = paidAmount - existingOrder.paidAmount;
+
+            // 3. Update the existing record
+            orders[existingOrderIndex] = {
+              ...existingOrder,
+              customerName: cust.name,
+              phone: custPhone || cust.phone || '',
+              items: [...this.cart],
+              subtotal, discount, grandTotal, paidAmount, pendingAmount,
+              paymentMode: payMode,
+              date: existingOrder.date // Keep original date
+            };
+
+            // Log update transaction if extra money was paid
+            if (incrementalPayment > 0) {
+              txns.push({
+                id: 't_' + Date.now(),
+                date: new Date().toISOString(),
+                type: 'Order Updated',
+                ref: orderNo,
+                amount: incrementalPayment,
+                payMode,
+                remarks: `Updated Order payment for ${cust.name}`
+              });
+            }
+            finalOrder = orders[existingOrderIndex];
+          }
+        } else {
+          // --- NEW ORDER LOGIC ---
+          const billCounter = StorageService.get('billCounter');
+          orderNo = `LKM${String(billCounter).padStart(6, '0')}`;
+          StorageService.set('billCounter', billCounter + 1);
+
+          this.cart.forEach(cItem => {
+            if (!cItem.isCustom) {
+              const stItem = inv.find(x => x.id === cItem.id);
+              if (stItem) {
+                stItem.qty -= cItem.qty;
+                stItem.soldQty = (stItem.soldQty || 0) + cItem.qty;
+              }
+            }
+          });
+
+          finalOrder = {
+            orderNo,
+            date: new Date().toISOString(),
+            customerName: cust.name,
+            phone: custPhone || cust.phone || '',
+            items: [...this.cart],
+            subtotal, discount, grandTotal, paidAmount, pendingAmount,
+            paymentMode: payMode,
+            status: 'Active'
+          };
+          orders.push(finalOrder);
+
+          txns.push({
+            id: 't_' + Date.now(),
+            date: new Date().toISOString(),
+            type: 'Sale',
+            ref: orderNo,
+            amount: paidAmount,
+            payMode,
+            remarks: `Order for ${cust.name}`
+          });
+        }
+
+        // Save all changes
+        StorageService.set('inventory', inv);
+        StorageService.set('orders', orders);
+        StorageService.set('transactions', txns);
+
+        // Reset state
+        document.getElementById('modalCheckout').classList.remove('active');
+        this.cart = [];
+        this.editingOrderNo = null; // Clear editing state
+        document.getElementById('posOrderNoSearch').value = '';
+        this.renderCart();
+        this.refreshAll();
+
+        this.showInvoice(finalOrder);
+
+        setTimeout(() => {
+          if (confirm(`${this.editingOrderNo ? 'Order Updated' : 'Order Placed'} Successfully! Do you want to send invoice via WhatsApp?`)) {
+            this.sendWhatsAppInvoice(finalOrder);
+          }
+        }, 500);
+      }
+
+      sendWhatsAppInvoice(order) {
+        let itemsListStr = order.items.map(i => `- ${i.name} (${i.qty} ${i.unit}) @ ₹${i.rate} = ₹${(i.qty * i.rate).toFixed(2)}`).join('\n');
+        let text = `🧾 *LKM & Narasimhalu Fruits Merchant INVOICE*\n`;
+        text += `--------------------------------\n`;
+        text += `*Order No:* ${order.orderNo}\n`;
+        text += `*Date:* ${new Date(order.date).toLocaleString()}\n`;
+        text += `*Customer:* ${order.customerName}\n`;
+        text += `--------------------------------\n`;
+        text += `*Items List:*\n${itemsListStr}\n`;
+        text += `--------------------------------\n`;
+        text += `*Subtotal:* ₹${order.subtotal.toFixed(2)}\n`;
+        text += `*Discount:* ₹${order.discount.toFixed(2)}\n`;
+        text += `*Grand Total:* ₹${order.grandTotal.toFixed(2)}\n`;
+        text += `*Paid Amount:* ₹${order.paidAmount.toFixed(2)}\n`;
+        text += `*Pending Due:* ₹${order.pendingAmount.toFixed(2)}\n`;
+        text += `--------------------------------\n`;
+        text += `Thank you for shopping with LKM & Narasimhalu Fruits Merchant! 🙏`;
+
+        const encodedText = encodeURIComponent(text);
+        const phoneParam = order.phone ? `91${order.phone}` : '';
+        window.open(`https://wa.me/${phoneParam}?text=${encodedText}`, '_blank');
+      }
+
+      sendCustomerTransactionsWhatsApp(customerName) {
+        const orders = StorageService.get('orders').filter(o => o.customerName.toLowerCase() === customerName.toLowerCase() && o.status !== 'Cancelled');
+        if (orders.length === 0) return this.toast('No transactions to send', 'warning');
+        
+        const customer = StorageService.get('customers').find(c => c.name.toLowerCase() === customerName.toLowerCase());
+        const phone = customer ? customer.phone : '';
+
+        let text = `📋 *TRANSACTION SUMMARY FOR ${customerName.toUpperCase()}*\n`;
+        text += `--------------------------------\n`;
+        let sumTotal = 0, sumPaid = 0, sumPending = 0;
+        orders.forEach(o => {
+          sumTotal += o.grandTotal;
+          sumPaid += o.paidAmount;
+          sumPending += o.pendingAmount;
+          text += `• *${o.orderNo}* (${new Date(o.date).toLocaleDateString()}): Total ₹${o.grandTotal.toFixed(2)} | Paid ₹${o.paidAmount.toFixed(2)} | Pending ₹${o.pendingAmount.toFixed(2)}\n`;
+        });
+        text += `--------------------------------\n`;
+        text += `*Grand Total:* ₹${sumTotal.toFixed(2)}\n`;
+        text += `*Total Paid:* ₹${sumPaid.toFixed(2)}\n`;
+        text += `*Total Pending Balance:* ₹${sumPending.toFixed(2)}\n`;
+        text += `--------------------------------\n`;
+        text += `Thank you! - LKM & Narasimhalu Fruits Merchant 🙏`;
+
+        const encodedText = encodeURIComponent(text);
+        const phoneParam = phone ? `91${phone}` : '';
+        window.open(`https://wa.me/${phoneParam}?text=${encodedText}`, '_blank');
+      }
+
+      cancelOrder(orderNo) {
+        let orders = StorageService.get('orders');
+        const order = orders.find(o => o.orderNo === orderNo);
+
+        if (!order) return;
+        if (order.status === 'Cancelled') {
+          return this.toast('This order is already cancelled', 'warning');
+        }
+
+        if (confirm(`Are you sure you want to cancel order "${orderNo}"? This will rollback all inventory items and transactions.`)) {
+          let inv = StorageService.get('inventory');
+          order.items.forEach(cItem => {
+            if (!cItem.isCustom) {
+              const stItem = inv.find(x => x.id === cItem.id);
+              if (stItem) {
+                stItem.qty += cItem.qty;
+                stItem.soldQty = Math.max(0, (stItem.soldQty || 0) - cItem.qty);
+              }
+            }
+          });
+          StorageService.set('inventory', inv);
+
+          order.status = 'Cancelled';
+          StorageService.set('orders', orders);
+
+          const txns = StorageService.get('transactions');
+          txns.push({
+            id: 't_' + Date.now(),
+            date: new Date().toISOString(),
+            type: 'Order Cancelled',
+            ref: order.orderNo,
+            amount: -order.paidAmount,
+            payMode: order.paymentMode,
+            remarks: `Rollback for Order ${order.orderNo} (${order.customerName})`
+          });
+          StorageService.set('transactions', txns);
+
+          this.toast(`Order ${orderNo} cancelled & stock rolled back successfully`);
+          this.refreshAll();
+        }
+      }
+
+      renderAllOrders() {
+        const orders = StorageService.get('orders');
+        const tbody = document.getElementById('allOrdersTbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        const sortedOrders = [...orders].sort((a, b) => new Date(b.date) - new Date(a.date));
+        const selectedDateVal = document.getElementById('orderDateFilter').value;
+
+        const filteredOrders = sortedOrders.filter(o => {
+          if (!selectedDateVal) return true;
+          const orderDateOnly = new Date(o.date).toISOString().split('T')[0];
+          return orderDateOnly === selectedDateVal;
+        });
+
+        let sumGrandTotal = 0;
+        let sumPaidAmount = 0;
+        let sumPendingDue = 0;
+
+        filteredOrders.forEach(o => {
+          const isCancelled = o.status === 'Cancelled';
+          
+          if (!isCancelled) {
+            sumGrandTotal += (o.grandTotal || 0);
+            sumPaidAmount += (o.paidAmount || 0);
+            sumPendingDue += (o.pendingAmount || 0);
+          }
+
+          const isPaid = o.pendingAmount <= 0;
+          let badge = isCancelled
+            ? '<span class="badge badge-cancelled">Cancelled</span>'
+            : (isPaid ? '<span class="badge badge-paid">Paid</span>' : '<span class="badge badge-pending">Pending</span>');
+
+          const tr = document.createElement('tr');
+          if (isCancelled) tr.style.opacity = '0.6';
+
+          tr.innerHTML = `
+            <td><strong>${o.orderNo}</strong></td>
+            <td>${new Date(o.date).toLocaleString()}</td>
+            <td>${o.customerName}</td>
+            <td>${o.phone || 'N/A'}</td>
+            <td>₹${o.grandTotal.toFixed(2)}</td>
+            <td>₹${o.paidAmount.toFixed(2)}</td>
+            <td>₹${o.pendingAmount.toFixed(2)}</td>
+            <td>${badge}</td>
+            <td style="display:flex; gap:0.4rem; align-items:center;">
+              <button class="btn btn-outline btn-sm btn-view-inv" data-ord="${o.orderNo}" title="View Invoice"><i class="fa-solid fa-eye"></i></button>
+              <button class="btn btn-secondary btn-sm btn-whatsapp" data-ord="${o.orderNo}" title="Send Invoice via WhatsApp" style="background-color: #25D366;"><i class="fa-brands fa-whatsapp"></i></button>
+              ${!isCancelled ? `<button class="btn btn-danger btn-sm btn-cancel-ord" data-ord="${o.orderNo}" title="Cancel Order"><i class="fa-solid fa-ban"></i></button>` : ''}
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        document.getElementById('ordersGrandTotal').innerText = `₹${sumGrandTotal.toFixed(2)}`;
+        document.getElementById('ordersPaidAmount').innerText = `₹${sumPaidAmount.toFixed(2)}`;
+        document.getElementById('ordersPendingDue').innerText = `₹${sumPendingDue.toFixed(2)}`;
+
+        tbody.querySelectorAll('.btn-view-inv').forEach(btn => {
+          btn.onclick = () => {
+            const ord = orders.find(x => x.orderNo === btn.dataset.ord);
+            if (ord) this.showInvoice(ord);
+          };
+        });
+
+        tbody.querySelectorAll('.btn-whatsapp').forEach(btn => {
+          btn.onclick = () => {
+            const ord = orders.find(x => x.orderNo === btn.dataset.ord);
+            if (ord) this.sendWhatsAppInvoice(ord);
+          };
+        });
+
+        tbody.querySelectorAll('.btn-cancel-ord').forEach(btn => {
+          btn.onclick = () => this.cancelOrder(btn.dataset.ord);
+        });
+      }
+
+      showInvoice(order) {
+        this.currentInvoice = order;
+        document.getElementById('invBillNo').innerText = order.orderNo + (order.status === 'Cancelled' ? ' (CANCELLED)' : '');
+        document.getElementById('invDate').innerText = `Date: ${new Date(order.date).toLocaleString()}`;
+        document.getElementById('invCust').innerText = order.customerName;
+        document.getElementById('invPhone').innerText = order.phone || 'N/A';
+        document.getElementById('invSub').innerText = order.subtotal.toFixed(2);
+        document.getElementById('invDisc').innerText = order.discount.toFixed(2);
+        document.getElementById('invGrand').innerText = order.grandTotal.toFixed(2);
+        document.getElementById('invPaid').innerText = order.paidAmount.toFixed(2);
+        document.getElementById('invPending').innerText = order.pendingAmount.toFixed(2);
+
+        const tbody = document.getElementById('invItemsTbody');
+        tbody.innerHTML = '';
+        order.items.forEach(i => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${i.name}</td><td>${i.qty} ${i.unit}</td><td>₹${i.rate}</td><td style="text-align:right;">₹${(i.qty*i.rate).toFixed(2)}</td>`;
+          tbody.appendChild(tr);
+        });
+
+        document.getElementById('modalInvoice').classList.add('active');
+      }
+
+      generateInvoicePDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.text(`LKM & NARASIMHALU FRUITS Merchant - INVOICE ${this.currentInvoice.orderNo}`, 14, 15);
+        doc.text(`Customer: ${this.currentInvoice.customerName}`, 14, 25);
+        doc.text(`Date: ${new Date(this.currentInvoice.date).toLocaleDateString()}`, 14, 32);
+
+        const rows = this.currentInvoice.items.map(i => [i.name, `${i.qty} ${i.unit}`, `Rs. ${i.rate}`, `Rs. ${i.qty * i.rate}`]);
+        doc.autoTable({ head: [['Item', 'Qty', 'Rate', 'Total']], body: rows, startY: 40 });
+        
+        const finalY = doc.lastAutoTable.finalY + 10;
+        doc.text(`Grand Total: Rs. ${this.currentInvoice.grandTotal}`, 14, finalY);
+        doc.text(`Paid: Rs. ${this.currentInvoice.paidAmount}`, 14, finalY + 7);
+        doc.text(`Pending: Rs. ${this.currentInvoice.pendingAmount}`, 14, finalY + 14);
+
+        doc.save(`Invoice_${this.currentInvoice.orderNo}.pdf`);
+      }
+
+      openPurchaseModal() {
+        const supps = StorageService.get('suppliers');
+        const inv = StorageService.get('inventory');
+        const sSelect = document.getElementById('purSupplier');
+        const fSelect = document.getElementById('purFruit');
+        sSelect.innerHTML = ''; fSelect.innerHTML = '';
+        supps.forEach(s => sSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`);
+        inv.forEach(f => fSelect.innerHTML += `<option value="${f.id}">${f.name}</option>`);
+        document.getElementById('formPurchase').reset();
+        document.getElementById('modalPurchase').classList.add('active');
+      }
+
+      savePurchase() {
+        const suppId = document.getElementById('purSupplier').value;
+        const invNo = document.getElementById('purInvNo').value.trim();
+        const fruitId = document.getElementById('purFruit').value;
+        const qty = parseFloat(document.getElementById('purQty').value);
+        const rate = parseFloat(document.getElementById('purRate').value);
+        const paid = parseFloat(document.getElementById('purPaid').value);
+
+        const total = qty * rate;
+        const pending = total - paid;
+        const purNo = 'PUR_' + Date.now();
+
+        const purchases = StorageService.get('purchases');
+        purchases.push({ purNo, suppId, invNo, fruitId, qty, rate, total, paid, pending, date: new Date().toISOString() });
+        StorageService.set('purchases', purchases);
+
+        let inv = StorageService.get('inventory');
+        const item = inv.find(x => x.id === fruitId);
+        if (item) {
+          item.qty += qty;
+          item.purchasedQty = (item.purchasedQty || 0) + qty;
+          item.costPrice = rate;
+          StorageService.set('inventory', inv);
+        }
+
+        const txns = StorageService.get('transactions');
+        txns.push({ id: 't_' + Date.now(), date: new Date().toISOString(), type: 'Purchase', ref: purNo, amount: paid, payMode: 'Cash', remarks: `Purchase Inv #${invNo}` });
+        StorageService.set('transactions', txns);
+
+        document.getElementById('modalPurchase').classList.remove('active');
+        this.toast('Purchase recorded successfully');
+        this.refreshAll();
+      }
+
+      deletePurchase(purNo) {
+        const purchases = StorageService.get('purchases');
+        const item = purchases.find(p => p.purNo === purNo);
+        if (!item) return;
+
+        if (confirm(`Are you sure you want to delete purchase record "${purNo}"?`)) {
+          const filtered = purchases.filter(p => p.purNo !== purNo);
+          StorageService.set('purchases', filtered);
+          this.toast('Purchase record deleted');
+          this.refreshAll();
+        }
+      }
+
+      renderPurchases() {
+        const list = StorageService.get('purchases');
+        const supps = StorageService.get('suppliers');
+        const tbody = document.getElementById('purchasesTbody');
+        tbody.innerHTML = '';
+        list.forEach(p => {
+          const supp = supps.find(s => s.id === p.suppId);
+          let badge = '<span class="badge badge-green">Paid</span>';
+          if (p.pending > 0 && p.paid > 0) badge = '<span class="badge badge-yellow">Partial</span>';
+          if (p.paid === 0) badge = '<span class="badge badge-red">Pending</span>';
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${p.purNo}</td>
+            <td>${supp?supp.name:'N/A'}</td>
+            <td>${p.invNo}</td>
+            <td>${new Date(p.date).toLocaleDateString()}</td>
+            <td>₹${p.total.toFixed(2)}</td>
+            <td>₹${p.paid.toFixed(2)}</td>
+            <td>₹${p.pending.toFixed(2)}</td>
+            <td>${badge}</td>
+            <td><button class="btn btn-danger btn-sm del-pur" data-id="${p.purNo}"><i class="fa-solid fa-trash"></i></button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('.del-pur').forEach(b => {
+          b.onclick = () => this.deletePurchase(b.dataset.id);
+        });
+      }
+
+      saveSupplier() {
+        const name = document.getElementById('suppName').value.trim();
+        const phone = document.getElementById('suppPhone').value.trim();
+        const address = document.getElementById('suppAddress').value.trim();
+
+        const supps = StorageService.get('suppliers');
+        supps.push({ id: 's_' + Date.now(), name, phone, address });
+        StorageService.set('suppliers', supps);
+
+        document.getElementById('modalSupplier').classList.remove('active');
+        this.toast('Supplier saved');
+        this.refreshAll();
+      }
+
+      deleteSupplier(id) {
+        const supps = StorageService.get('suppliers');
+        const s = supps.find(x => x.id === id);
+        if (!s) return;
+
+        if (confirm(`Are you sure you want to delete supplier "${s.name}"?`)) {
+          const filtered = supps.filter(x => x.id !== id);
+          StorageService.set('suppliers', filtered);
+          this.toast('Supplier deleted');
+          this.refreshAll();
+        }
+      }
+
+      renderSuppliers() {
+        const supps = StorageService.get('suppliers');
+        const purchases = StorageService.get('purchases');
+        const tbody = document.getElementById('suppliersTbody');
+        tbody.innerHTML = '';
+
+        supps.forEach(s => {
+          const myPur = purchases.filter(p => p.suppId === s.id);
+          const total = myPur.reduce((a,b) => a + b.total, 0);
+          const paid = myPur.reduce((a,b) => a + b.paid, 0);
+          const pending = total - paid;
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${s.name}</strong></td>
+            <td>${s.phone}</td>
+            <td>${s.address}</td>
+            <td>₹${total.toFixed(2)}</td>
+            <td>₹${paid.toFixed(2)}</td>
+            <td>₹${pending.toFixed(2)}</td>
+            <td>
+              <button class="btn btn-outline btn-sm btn-clear-supp" data-id="${s.id}" data-due="${pending}">Pay Due</button>
+              <button class="btn btn-danger btn-sm del-supp" data-id="${s.id}"><i class="fa-solid fa-trash"></i></button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('.btn-clear-supp').forEach(b => {
+          b.onclick = () => this.openPayClearModal('supplier', b.dataset.id, parseFloat(b.dataset.due));
+        });
+
+        tbody.querySelectorAll('.del-supp').forEach(b => {
+          b.onclick = () => this.deleteSupplier(b.dataset.id);
+        });
+      }
+
+      saveCustomer() {
+        const name = document.getElementById('custName').value.trim();
+        const phone = document.getElementById('custPhone').value.trim();
+
+        const custs = StorageService.get('customers');
+        custs.push({ id: 'c_' + Date.now(), name, phone, dateCreated: new Date().toISOString() });
+        StorageService.set('customers', custs);
+
+        document.getElementById('modalCustomer').classList.remove('active');
+        this.toast('Customer saved');
+        this.refreshAll();
+      }
+
+      deleteCustomer(id) {
+        const custs = StorageService.get('customers');
+        const c = custs.find(x => x.id === id);
+        if (!c) return;
+
+        if (confirm(`Are you sure you want to delete customer "${c.name}"?`)) {
+          const filtered = custs.filter(x => x.id !== id);
+          StorageService.set('customers', filtered);
+          this.toast('Customer deleted');
+          this.refreshAll();
+        }
+      }
+
+      renderCustomers() {
+        const custs = StorageService.get('customers');
+        const orders = StorageService.get('orders').filter(o => o.status !== 'Cancelled');
+        const tbody = document.getElementById('customersTbody');
+        tbody.innerHTML = '';
+
+        const searchFilterEl = document.getElementById('customerSearchInput');
+        const searchVal = searchFilterEl ? searchFilterEl.value.toLowerCase().trim() : '';
+
+        const filteredCusts = custs.filter(c => c.name.toLowerCase().includes(searchVal));
+
+        const customersWithMeta = filteredCusts.map(c => {
+          const myOrders = orders.filter(o => o.customerName.toLowerCase() === c.name.toLowerCase());
+          const totalPurchases = myOrders.reduce((a,b) => a + b.grandTotal, 0);
+          const totalPaid = myOrders.reduce((a,b) => a + b.paidAmount, 0);
+          const pending = (c.openingBalance || 0) + (totalPurchases - totalPaid);
+
+          let dateObj = c.dateCreated ? new Date(c.dateCreated) : new Date(0);
+          if (myOrders.length > 0) {
+            const latestOrderDate = new Date(Math.max(...myOrders.map(o => new Date(o.date))));
+            if (latestOrderDate > dateObj) dateObj = latestOrderDate;
+          }
+
+          return { ...c, totalPurchases, totalPaid, pending, latestDate: dateObj };
+        });
+
+        customersWithMeta.sort((a, b) => b.latestDate - a.latestDate);
+
+        customersWithMeta.forEach(c => {
+          const hasNoDue = c.pending <= 0;
+          const nameClass = hasNoDue ? 'text-green' : 'text-red';
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="${nameClass}">${c.name}</td>
+            <td>${c.phone || 'N/A'}</td>
+            <td>₹${c.totalPurchases.toFixed(2)}</td>
+            <td>₹${c.totalPaid.toFixed(2)}</td>
+            <td>₹${c.pending.toFixed(2)}</td>
+            <td style="display: flex; gap: 0.4rem; align-items: center;">
+              <button class="btn btn-outline btn-sm btn-view-cust-txns" data-name="${c.name}" title="View Transactions"><i class="fa-solid fa-receipt"></i></button>
+              ${!hasNoDue 
+                ? `<button class="btn btn-outline btn-sm btn-clear-cust" data-id="${c.id}" data-due="${c.pending}">Receive Due</button>`
+                : `<span>✅ Paid</span>`
+              }
+              <button class="btn btn-danger btn-sm del-cust" data-id="${c.id}"><i class="fa-solid fa-trash"></i></button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('.btn-view-cust-txns').forEach(b => {
+          b.onclick = () => this.showCustomerTransactions(b.dataset.name);
+        });
+
+        tbody.querySelectorAll('.btn-clear-cust').forEach(b => {
+          b.onclick = () => this.openPayClearModal('customer', b.dataset.id, parseFloat(b.dataset.due));
+        });
+
+        tbody.querySelectorAll('.del-cust').forEach(b => {
+          b.onclick = () => this.deleteCustomer(b.dataset.id);
+        });
+      }
+
+     showCustomerTransactions(customerName) {
+        const orders = StorageService.get('orders').filter(o => o.customerName.toLowerCase() === customerName.toLowerCase() && o.status !== 'Cancelled');
+        const customer = StorageService.get('customers').find(c => c.name.toLowerCase() === customerName.toLowerCase());
+        const tbody = document.getElementById('custTxnTbody');
+        tbody.innerHTML = '';
+
+        document.getElementById('custTxnModalTitle').innerText = `Transactions for ${customerName}`;
+
+        let sumTotal = 0;
+        let sumPaid = 0;
+        let sumPending = 0;
+        let runningTotalPending = customer && customer.openingBalance ? customer.openingBalance : 0;
+
+        if (orders.length === 0 && runningTotalPending === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">No transactions found for this customer.</td></tr>`;
+          document.getElementById('btnCustTxnWhatsApp').style.display = 'none';
+        } else {
+          orders.forEach(o => {
+            sumTotal += o.grandTotal;
+            sumPaid += o.paidAmount;
+            sumPending += o.pendingAmount;
+            runningTotalPending += o.pendingAmount;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td><span class="view-invoice-btn" style="color:var(--primary); cursor:pointer; text-decoration:underline;" title="Click to view order details"><strong>${o.orderNo}</strong></span></td>
+              <td>${new Date(o.date).toLocaleDateString()}</td>
+              <td>₹${o.grandTotal.toFixed(2)}</td>
+              <td>₹${o.paidAmount.toFixed(2)}</td>
+              <td>₹${o.pendingAmount.toFixed(2)}</td>
+              <td><strong>₹${runningTotalPending.toFixed(2)}</strong></td>
+            `;
+            
+            // Attach click event to open the invoice modal
+           // Attach click event to open the invoice modal and bring it to the front
+tr.querySelector('.view-invoice-btn').onclick = () => {
+  const invoiceModal = document.getElementById('modalInvoice');
+  invoiceModal.style.zIndex = '9999'; // Force it to the front
+  this.showInvoice(o);
+};
+            
+            tbody.appendChild(tr);
+          });
+
+          const waBtn = document.getElementById('btnCustTxnWhatsApp');
+          waBtn.style.display = 'inline-flex';
+          waBtn.onclick = () => this.sendCustomerTransactionsWhatsApp(customerName);
+        }
+
+        document.getElementById('custTxnTotal').innerText = `₹${sumTotal.toFixed(2)}`;
+        document.getElementById('custTxnPaid').innerText = `₹${sumPaid.toFixed(2)}`;
+        document.getElementById('custTxnPending').innerText = `₹${(sumPending + (customer ? customer.openingBalance || 0 : 0)).toFixed(2)}`;
+
+        document.getElementById('modalCustomerTransactions').classList.add('active');
+      }
+
+      openPayClearModal(type, targetId, due) {
+        if (due <= 0) return this.toast('No pending dues available', 'warning');
+        document.getElementById('payClearType').value = type;
+        document.getElementById('payClearTargetId').value = targetId;
+        document.getElementById('lblPayClearDue').innerText = due.toFixed(2);
+        document.getElementById('payClearAmt').value = due.toFixed(2);
+        document.getElementById('payClearTitle').innerText = type === 'customer' ? 'Receive Customer Payment' : 'Clear Supplier Payable';
+        document.getElementById('modalPayClear').classList.add('active');
+      }
+
+      processPendingPayment() {
+        const type = document.getElementById('payClearType').value;
+        const targetId = document.getElementById('payClearTargetId').value;
+        const amt = parseFloat(document.getElementById('payClearAmt').value);
+        const mode = document.getElementById('payClearMode').value;
+
+        const txns = StorageService.get('transactions');
+        
+        if (type === 'customer') {
+          const custs = StorageService.get('customers');
+          const cust = custs.find(c => c.id === targetId);
+          if (cust) {
+            let remainingPay = amt;
+
+            if (cust.openingBalance && cust.openingBalance > 0) {
+              const clearedOp = Math.min(cust.openingBalance, remainingPay);
+              cust.openingBalance -= clearedOp;
+              remainingPay -= clearedOp;
+            }
+
+            if (remainingPay > 0) {
+              let orders = StorageService.get('orders');
+              orders.forEach(o => {
+                if (o.customerName.toLowerCase() === cust.name.toLowerCase() && o.pendingAmount > 0 && remainingPay > 0 && o.status !== 'Cancelled') {
+                  const payToOrder = Math.min(o.pendingAmount, remainingPay);
+                  o.pendingAmount -= payToOrder;
+                  o.paidAmount += payToOrder;
+                  remainingPay -= payToOrder;
+                }
+              });
+              StorageService.set('orders', orders);
+            }
+
+            StorageService.set('customers', custs);
+
+            txns.push({ 
+              id: 't_' + Date.now(), 
+              date: new Date().toISOString(), 
+              type: 'Customer Payment', 
+              ref: cust.name, 
+              amount: amt, 
+              payMode: mode, 
+              remarks: 'Due payment received' 
+            });
+          }
+        } else {
+          const supps = StorageService.get('suppliers');
+          const supp = supps.find(s => s.id === targetId);
+          if (supp) {
+            let remainingPay = amt;
+            let purchases = StorageService.get('purchases');
+            purchases.forEach(p => {
+              if (p.suppId === supp.id && p.pending > 0 && remainingPay > 0) {
+                const payToPur = Math.min(p.pending, remainingPay);
+                p.pending -= payToPur;
+                p.paid += payToPur;
+                remainingPay -= payToPur;
+              }
+            });
+            StorageService.set('purchases', purchases);
+
+            txns.push({ 
+              id: 't_' + Date.now(), 
+              date: new Date().toISOString(), 
+              type: 'Supplier Payment', 
+              ref: supp.name, 
+              amount: amt, 
+              payMode: mode, 
+              remarks: 'Due payout cleared' 
+            });
+          }
+        }
+
+        StorageService.set('transactions', txns);
+        document.getElementById('modalPayClear').classList.remove('active');
+        this.toast('Payment processed successfully');
+        this.refreshAll();
+      }
+
+      renderPending() {
+        const custs = StorageService.get('customers');
+        const orders = StorageService.get('orders').filter(o => o.status !== 'Cancelled');
+        const cTbody = document.getElementById('custPendingTbody');
+        cTbody.innerHTML = '';
+
+        const pendingCusts = custs.map(c => {
+          const myOrders = orders.filter(o => o.customerName.toLowerCase() === c.name.toLowerCase());
+          const due = (c.openingBalance || 0) + myOrders.reduce((a,b) => a + b.pendingAmount, 0);
+          
+          let dateObj = c.dateCreated ? new Date(c.dateCreated) : new Date(0);
+          if (myOrders.length > 0) {
+            const latestOrderDate = new Date(Math.max(...myOrders.map(o => new Date(o.date))));
+            if (latestOrderDate > dateObj) dateObj = latestOrderDate;
+          }
+
+          return { ...c, due, latestDate: dateObj };
+        }).filter(c => c.due > 0);
+
+        pendingCusts.sort((a, b) => b.latestDate - a.latestDate);
+
+        pendingCusts.forEach(c => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="text-red">${c.name}</td>
+            <td>₹${c.due.toFixed(2)}</td>
+            <td><button class="btn btn-primary btn-sm pay-c" data-id="${c.id}" data-due="${c.due}">Collect</button></td>
+          `;
+          cTbody.appendChild(tr);
+        });
+
+        const supps = StorageService.get('suppliers');
+        const purchases = StorageService.get('purchases');
+        const sTbody = document.getElementById('suppPendingTbody');
+        sTbody.innerHTML = '';
+
+        supps.forEach(s => {
+          const myPur = purchases.filter(p => p.suppId === s.id);
+          const due = myPur.reduce((a,b) => a + b.pending, 0);
+          if (due > 0) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${s.name}</td><td>₹${due.toFixed(2)}</td><td><button class="btn btn-secondary btn-sm pay-s" data-id="${s.id}" data-due="${due}">Pay</button></td>`;
+            sTbody.appendChild(tr);
+          }
+        });
+
+        cTbody.querySelectorAll('.pay-c').forEach(b => b.onclick = () => this.openPayClearModal('customer', b.dataset.id, parseFloat(b.dataset.due)));
+        sTbody.querySelectorAll('.pay-s').forEach(b => b.onclick = () => this.openPayClearModal('supplier', b.dataset.id, parseFloat(b.dataset.due)));
+      }
+
+      saveExpense() {
+        const category = document.getElementById('expCat').value;
+        const amount = parseFloat(document.getElementById('expAmount').value);
+        const remarks = document.getElementById('expRemarks').value.trim();
+
+        const id = 'e_' + Date.now();
+        const exp = StorageService.get('expenses');
+        exp.push({ id, date: new Date().toISOString(), category, amount, remarks });
+        StorageService.set('expenses', exp);
+
+        const txns = StorageService.get('transactions');
+        txns.push({ id: 't_' + Date.now(), date: new Date().toISOString(), type: 'Expense', ref: category, amount, payMode: 'Cash', remarks });
+        StorageService.set('transactions', txns);
+
+        document.getElementById('modalExpense').classList.remove('active');
+        this.toast('Expense recorded');
+        this.refreshAll();
+      }
+
+      deleteExpense(id) {
+        const exp = StorageService.get('expenses');
+        if (confirm('Are you sure you want to delete this expense record?')) {
+          const filtered = exp.filter(e => e.id !== id);
+          StorageService.set('expenses', filtered);
+          this.toast('Expense deleted');
+          this.refreshAll();
+        }
+      }
+
+      renderExpenses() {
+        const exp = StorageService.get('expenses');
+        const tbody = document.getElementById('expensesTbody');
+        tbody.innerHTML = '';
+        exp.forEach(e => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${new Date(e.date).toLocaleDateString()}</td>
+            <td>${e.category}</td>
+            <td>₹${e.amount.toFixed(2)}</td>
+            <td>${e.remarks||'-'}</td>
+            <td><button class="btn btn-danger btn-sm del-exp" data-id="${e.id||''}"><i class="fa-solid fa-trash"></i></button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('.del-exp').forEach(b => {
+          b.onclick = () => this.deleteExpense(b.dataset.id);
+        });
+      }
+
+      deleteTransaction(id) {
+        const txns = StorageService.get('transactions');
+        if (confirm('Are you sure you want to delete this transaction record?')) {
+          const filtered = txns.filter(t => t.id !== id);
+          StorageService.set('transactions', filtered);
+          this.toast('Transaction deleted');
+          this.refreshAll();
+        }
+      }
+
+      renderTransactions() {
+        const txns = StorageService.get('transactions');
+        const tbody = document.getElementById('transactionsTbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        const selectedDateVal = document.getElementById('txnDateFilter').value;
+
+        const filteredTxns = [...txns].reverse().filter(t => {
+          if (!selectedDateVal) return true;
+          const txnDateOnly = new Date(t.date).toISOString().split('T')[0];
+          return txnDateOnly === selectedDateVal;
+        });
+
+        filteredTxns.forEach(t => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${new Date(t.date).toLocaleString()}</td>
+            <td><span class="badge ${t.amount < 0 ? 'badge-cancelled' : 'badge-paid'}">${t.type}</span></td>
+            <td>${t.ref}</td>
+            <td>₹${t.amount.toFixed(2)}</td>
+            <td>${t.payMode}</td>
+            <td>${t.remarks||'-'}</td>
+            <td><button class="btn btn-danger btn-sm del-txn" data-id="${t.id||''}"><i class="fa-solid fa-trash"></i></button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('.del-txn').forEach(b => {
+          b.onclick = () => this.deleteTransaction(b.dataset.id);
+        });
+      }
+
+      renderDashboard() {
+        const orders = StorageService.get('orders').filter(o => o.status !== 'Cancelled');
+        const purchases = StorageService.get('purchases');
+        const inv = StorageService.get('inventory');
+        const custs = StorageService.get('customers');
+        const supps = StorageService.get('suppliers');
+
+        const todayStr = new Date().toDateString();
+        const todayOrders = orders.filter(o => new Date(o.date).toDateString() === todayStr);
+
+        const salesVal = todayOrders.reduce((a,b) => a + b.grandTotal, 0);
+        const collVal = todayOrders.reduce((a,b) => a + b.paidAmount, 0);
+
+        document.getElementById('dashSales').innerText = `₹${salesVal.toFixed(2)}`;
+        document.getElementById('dashOrders').innerText = todayOrders.length;
+        document.getElementById('dashCollection').innerText = `₹${collVal.toFixed(2)}`;
+
+        const stockVal = inv.reduce((a,b) => a + (b.qty * b.costPrice), 0);
+        const lowStock = inv.filter(x => x.qty <= 5).length;
+
+        document.getElementById('dashStockVal').innerText = `₹${stockVal.toFixed(2)}`;
+        document.getElementById('dashLowStock').innerText = lowStock;
+
+        const custPending = custs.reduce((a,c) => {
+          const myOrd = orders.filter(o => o.customerName.toLowerCase() === c.name.toLowerCase());
+          return a + (c.openingBalance || 0) + myOrd.reduce((x,y) => x + y.pendingAmount, 0);
+        }, 0);
+
+        const suppPending = supps.reduce((a,s) => {
+          const myPur = purchases.filter(p => p.suppId === s.id);
+          return a + myPur.reduce((x,y) => x + y.pending, 0);
+        }, 0);
+
+        document.getElementById('dashPendingCust').innerText = `₹${custPending.toFixed(2)}`;
+        document.getElementById('dashPendingSupp').innerText = `₹${suppPending.toFixed(2)}`;
+
+        this.renderCharts(orders, salesVal);
+      }
+
+      renderCharts(orders, salesVal) {
+        if (this.charts.sales) this.charts.sales.destroy();
+        if (this.charts.payments) this.charts.payments.destroy();
+
+        const ctx1 = document.getElementById('chartSales').getContext('2d');
+        this.charts.sales = new Chart(ctx1, {
+          type: 'line',
+          data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{ label: 'Sales (₹)', data: [1200, 1900, 3000, 2500, 2000, 4500, salesVal || 1500], borderColor: '#2E7D32', tension: 0.3, fill: false }]
+          },
+          options: { responsive: true, plugins: { legend: { display: false } } }
+        });
+
+        const cashCount = orders.filter(o => o.paymentMode === 'Cash').length;
+        const upiCount = orders.filter(o => o.paymentMode === 'UPI').length;
+        const creditCount = orders.filter(o => o.paymentMode === 'Credit').length;
+
+        const ctx2 = document.getElementById('chartPayments').getContext('2d');
+        this.charts.payments = new Chart(ctx2, {
+          type: 'doughnut',
+          data: {
+            labels: ['Cash', 'UPI', 'Credit'],
+            datasets: [{ data: [cashCount || 1, upiCount || 1, creditCount || 1], backgroundColor: ['#2E7D32', '#66BB6A', '#FB8C00'] }]
+          },
+          options: { responsive: true }
+        });
+      }
+
+      renderReports() {
+        const orders = StorageService.get('orders');
+        const tbody = document.getElementById('reportsTbody');
+        tbody.innerHTML = '';
+
+        orders.forEach(o => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${o.orderNo}</td><td>${new Date(o.date).toLocaleDateString()}</td><td>Order</td><td>${o.customerName}</td><td>₹${o.grandTotal.toFixed(2)}</td><td><span class="badge ${o.status === 'Cancelled' ? 'badge-cancelled' : 'badge-paid'}">${o.status === 'Cancelled' ? 'Cancelled' : o.paymentMode}</span></td>`;
+          tbody.appendChild(tr);
+        });
+      }
+
+      exportExcel() {
+        const table = document.getElementById('reportTable');
+        const wb = XLSX.utils.table_to_book(table, { sheet: "LKM_Report" });
+        XLSX.writeFile(wb, "LKM_ERP_Report.xlsx");
+      }
+
+      exportPDFReport() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.text("LKM & Narasimhalu Fruits Merchant ERP REPORT", 14, 15);
+        doc.autoTable({ html: '#reportTable', startY: 25 });
+        doc.save("LKM_ERP_Report.pdf");
+      }
+
+      exportBackup() {
+        // 1. Fetch the entire database state
+        const data = StorageService.getFullBackup();
+        
+        // 2. Create a new virtual Excel workbook
+        const wb = XLSX.utils.book_new();
+        
+        // 3. Loop through every table in the database
+        Object.keys(data).forEach(key => {
+          const sheetData = data[key];
+          
+          // Ensure we are only trying to export arrays of data (collections)
+          if (Array.isArray(sheetData) && sheetData.length > 0) {
+            // Convert the JSON array to an Excel worksheet
+            const ws = XLSX.utils.json_to_sheet(sheetData);
+            
+            // Capitalize the tab name (e.g., "orders" -> "Orders")
+            const tabName = key.charAt(0).toUpperCase() + key.slice(1);
+            
+            // Add the worksheet to the workbook
+            XLSX.utils.book_append_sheet(wb, ws, tabName);
+          }
+        });
+        
+        // 4. Trigger the download with a timestamped filename
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        XLSX.writeFile(wb, `LKM_Database_Backup_${timestamp}.xlsx`);
+        this.toast('Excel Backup Downloaded Successfully!', 'success');
+      }
+
+      importBackup(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            // 1. Read the Excel file buffer
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            const restoredData = {};
+            
+            // 2. Loop through all sheets and parse them back to JSON
+            workbook.SheetNames.forEach(sheetName => {
+              const jsonArray = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+              // Lowercase the tab name to match your database keys (e.g., "Orders" -> "orders")
+              const dbKey = sheetName.charAt(0).toLowerCase() + sheetName.slice(1);
+              restoredData[dbKey] = jsonArray;
+            });
+            
+            // 3. Save to LocalStorage and trigger sync
+            StorageService.restoreFullBackup(restoredData);
+            
+            this.toast('Database Restored from Excel Successfully!', 'success');
+            this.refreshAll();
+          } catch (err) {
+            console.error('Import Error:', err);
+            this.toast('Failed to restore backup. Invalid Excel file.', 'error');
+          }
+          
+          // Reset the file input so the same file can be selected again if needed
+          event.target.value = '';
+        };
+        
+        reader.readAsArrayBuffer(file);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      window.app = new ERPApp();
+    });
+  </script>
+</body>
+</html>

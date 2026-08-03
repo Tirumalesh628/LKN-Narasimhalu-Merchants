@@ -335,6 +335,7 @@
                 <label for="orderDateFilter" style="font-size: 0.85rem; font-weight: 600; margin: 0;">Date Filter:</label>
                 <input type="date" id="orderDateFilter" class="form-control" style="width: auto; padding: 0.4rem 0.6rem; font-size: 0.85rem;">
                 <button class="btn btn-outline btn-sm" id="btnResetOrderDate" title="Clear Date Filter">All Time</button>
+                <button class="btn btn-secondary btn-sm" id="btnDownloadOrdersPdf" title="Download this list as PDF"><i class="fa-solid fa-file-pdf"></i> Download PDF</button>
               </div>
             </div>
             <div class="table-responsive">
@@ -472,6 +473,7 @@
                 <label for="txnDateFilter" style="font-size: 0.85rem; font-weight: 600; margin: 0;">Date Filter:</label>
                 <input type="date" id="txnDateFilter" class="form-control" style="width: auto; padding: 0.4rem 0.6rem; font-size: 0.85rem;">
                 <button class="btn btn-outline btn-sm" id="btnResetTxnDate" title="Clear Date Filter">All Time</button>
+                <button class="btn btn-secondary btn-sm" id="btnDownloadTxnPdf" title="Download this list as PDF"><i class="fa-solid fa-file-pdf"></i> Download PDF</button>
               </div>
             </div>
             <div class="table-responsive">
@@ -979,6 +981,8 @@
           dateFilterInput.value = new Date().toISOString().split('T')[0];
           dateFilterInput.addEventListener('change', () => this.renderAllOrders());
         }
+        document.getElementById('btnDownloadOrdersPdf').addEventListener('click', () => this.downloadOrdersPdf());
+        document.getElementById('btnDownloadTxnPdf').addEventListener('click', () => this.downloadTransactionsPdf());
 
         const resetDateBtn = document.getElementById('btnResetOrderDate');
         if (resetDateBtn) {
@@ -1699,6 +1703,59 @@ loadOrderToCart(orderNo) {
         });
       }
 
+      downloadOrdersPdf() {
+        const selectedDateVal = document.getElementById('orderDateFilter').value;
+        const orders = StorageService.get('orders');
+        const sortedOrders = [...orders].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        const filteredOrders = sortedOrders.filter(o => {
+          if (!selectedDateVal) return true;
+          const orderDateOnly = new Date(o.date).toISOString().split('T')[0];
+          return orderDateOnly === selectedDateVal;
+        });
+
+        if (filteredOrders.length === 0) {
+          this.toast('No orders found for the selected date', 'error');
+          return;
+        }
+
+        const rows = filteredOrders.map(o => {
+          const isCancelled = o.status === 'Cancelled';
+          const isPaid = o.pendingAmount <= 0;
+          const status = isCancelled ? 'Cancelled' : (isPaid ? 'Paid' : 'Pending');
+          return [
+            o.orderNo,
+            new Date(o.date).toLocaleString(),
+            o.customerName,
+            o.phone || 'N/A',
+            `Rs.${o.grandTotal.toFixed(2)}`,
+            `Rs.${o.paidAmount.toFixed(2)}`,
+            `Rs.${o.pendingAmount.toFixed(2)}`,
+            status
+          ];
+        });
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.setFontSize(14);
+        doc.text('LKM & Narasimhalu Fruits Merchant', 14, 15);
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Orders Report - ${selectedDateVal ? selectedDateVal : 'All Time'}`, 14, 21);
+
+        doc.autoTable({
+          head: [['Order No', 'Date', 'Customer', 'Phone', 'Grand Total', 'Paid Amount', 'Pending Due', 'Status']],
+          body: rows,
+          startY: 27,
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fillColor: [46, 125, 50] }
+        });
+
+        const fileDate = selectedDateVal || new Date().toISOString().split('T')[0];
+        doc.save(`LKM_Orders_${fileDate}.pdf`);
+        this.toast('Orders PDF downloaded');
+      }
+
       showInvoice(order) {
         this.currentInvoice = order;
         document.getElementById('invBillNo').innerText = order.orderNo + (order.status === 'Cancelled' ? ' (CANCELLED)' : '');
@@ -2270,6 +2327,51 @@ tr.querySelector('.view-invoice-btn').onclick = () => {
         tbody.querySelectorAll('.del-txn').forEach(b => {
           b.onclick = () => this.deleteTransaction(b.dataset.id);
         });
+      }
+
+      downloadTransactionsPdf() {
+        const selectedDateVal = document.getElementById('txnDateFilter').value;
+        const txns = StorageService.get('transactions');
+
+        const filteredTxns = [...txns].reverse().filter(t => {
+          if (!selectedDateVal) return true;
+          const txnDateOnly = new Date(t.date).toISOString().split('T')[0];
+          return txnDateOnly === selectedDateVal;
+        });
+
+        if (filteredTxns.length === 0) {
+          this.toast('No transactions found for the selected date', 'error');
+          return;
+        }
+
+        const rows = filteredTxns.map(t => [
+          new Date(t.date).toLocaleString(),
+          t.type,
+          t.ref,
+          `Rs.${t.amount.toFixed(2)}`,
+          t.payMode,
+          t.remarks || '-'
+        ]);
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.setFontSize(14);
+        doc.text('LKM & Narasimhalu Fruits Merchant', 14, 15);
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Transaction Audit Log - ${selectedDateVal ? selectedDateVal : 'All Time'}`, 14, 21);
+
+        doc.autoTable({
+          head: [['Date', 'Type', 'Reference', 'Amount', 'Payment Mode', 'Remarks']],
+          body: rows,
+          startY: 27,
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fillColor: [46, 125, 50] }
+        });
+
+        const fileDate = selectedDateVal || new Date().toISOString().split('T')[0];
+        doc.save(`LKM_Transactions_${fileDate}.pdf`);
+        this.toast('Transactions PDF downloaded');
       }
 
       renderDashboard() {

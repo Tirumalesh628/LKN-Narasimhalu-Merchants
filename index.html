@@ -343,6 +343,8 @@
             <div class="card-title">
               <span>All Orders Management</span>
               <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap:wrap;">
+                <input type="text" id="orderNoSearchInput" class="form-control" placeholder="Search Order No..." style="width: 160px; padding: 0.35rem 0.5rem; font-size: 0.8rem;" autocomplete="off">
+                <button class="btn btn-outline btn-sm" id="btnOrderNoSearch" title="Search"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
                 <span style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">From:</span>
                 <input type="date" id="orderFromDate" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;">
                 <span style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">To:</span>
@@ -370,7 +372,7 @@
             <div class="table-responsive">
               <table>
                 <thead>
-                  <tr><th>Fruit</th><th>Category</th><th>Unit</th><th>Available Qty</th><th>Purchased</th><th>Sold</th><th>Cost Price</th><th>Selling Price</th><th>Stock Value</th><th>Status</th><th>Actions</th></tr>
+                  <tr><th>Fruit</th><th>Added Date</th><th>Unit</th><th>Available Qty</th><th>Purchased</th><th>Sold</th><th>Cost Price</th><th>Selling Price</th><th>Stock Value</th><th>Status</th><th>Actions</th></tr>
                 </thead>
                 <tbody id="inventoryTbody"></tbody>
               </table>
@@ -904,11 +906,18 @@
         <div class="modal-title"><i class="fa-solid fa-clock-rotate-left" style="margin-right:0.4rem;"></i>Inventory History (Out of Stock)</div>
         <i class="fa-solid fa-xmark modal-close" style="cursor:pointer;"></i>
       </div>
-      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.75rem;">Fruits that previously had stock but are now at zero quantity. They're hidden from the main Inventory list until restocked.</p>
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.5rem;">Fruits that previously had stock but are now at zero quantity. They're hidden from the main Inventory list until restocked.</p>
+      <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.75rem;">
+        <span style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">Added From:</span>
+        <input type="date" id="histFromDate" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;">
+        <span style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">To:</span>
+        <input type="date" id="histToDate" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;">
+        <button class="btn btn-outline btn-sm" id="btnResetHistDate">All Time</button>
+      </div>
       <div class="table-responsive" style="max-height:420px; overflow-y:auto;">
         <table>
           <thead>
-            <tr><th>Fruit</th><th>Category</th><th>Unit</th><th>Available Qty</th><th>Cost Price</th><th>Selling Price</th><th>Actions</th></tr>
+            <tr><th>Fruit</th><th>Added Date</th><th>Unit</th><th>Available Qty</th><th>Cost Price</th><th>Selling Price</th><th>Actions</th></tr>
           </thead>
           <tbody id="inventoryHistoryTbody"></tbody>
         </table>
@@ -948,9 +957,9 @@
       users: [{ username: 'admin', password: 'admin123', name: 'Master Admin' }],
       currentUser: null,
       inventory: [
-        { id: 'f1', name: 'Red Apple', category: 'Fresh Fruits', unit: 'Kg', qty: 45, costPrice: 120, sellPrice: 160, purchasedQty: 50, soldQty: 5 },
-        { id: 'f2', name: 'Robusta Banana', category: 'Fresh Fruits', unit: 'Dozen', qty: 30, costPrice: 35, sellPrice: 50, purchasedQty: 40, soldQty: 10 },
-        { id: 'f3', name: 'Nagpur Orange', category: 'Fresh Fruits', unit: 'Kg', qty: 4, costPrice: 60, sellPrice: 90, purchasedQty: 20, soldQty: 16 }
+        { id: 'f1', name: 'Red Apple', category: 'Fresh Fruits', unit: 'Kg', qty: 45, costPrice: 120, sellPrice: 160, purchasedQty: 50, soldQty: 5, dateAdded: new Date().toISOString() },
+        { id: 'f2', name: 'Robusta Banana', category: 'Fresh Fruits', unit: 'Dozen', qty: 30, costPrice: 35, sellPrice: 50, purchasedQty: 40, soldQty: 10, dateAdded: new Date().toISOString() },
+        { id: 'f3', name: 'Nagpur Orange', category: 'Fresh Fruits', unit: 'Kg', qty: 4, costPrice: 60, sellPrice: 90, purchasedQty: 20, soldQty: 16, dateAdded: new Date().toISOString() }
       ],
       purchases: [],
       suppliers: [{ id: 's1', name: 'Himalayan Orchards', phone: '9876500001', address: 'Shimla' }],
@@ -1088,10 +1097,21 @@
         this.currentCustomerOrdName = null;
         this.currentCustomerTxnLogName = null;
         this.initDOM();
+        this.setDefaultDateFilters();
         this.bindEvents();
         this.checkAuth();
         this.initAutoSync();
         this.setupResponsiveLayout();
+      }
+
+      // Pre-fills the Purchases and Transactions date filters with today's date,
+      // so those pages open showing only today's records by default.
+      setDefaultDateFilters() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        ['purFromDate', 'purToDate', 'txnFromDate', 'txnToDate'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el && !el.value) el.value = todayStr;
+        });
       }
 
       initDOM() {
@@ -1215,7 +1235,19 @@
           const el = document.getElementById(id);
           if (el) el.addEventListener('change', () => this.renderAllOrders());
         });
-        
+
+        // Order number search
+        const orderNoSearchInput = document.getElementById('orderNoSearchInput');
+        if (orderNoSearchInput) {
+          orderNoSearchInput.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') this.renderAllOrders();
+          });
+        }
+        const btnOrderNoSearch = document.getElementById('btnOrderNoSearch');
+        if (btnOrderNoSearch) {
+          btnOrderNoSearch.addEventListener('click', () => this.renderAllOrders());
+        }
+
         document.getElementById('btnDownloadOrdersPreview').addEventListener('click', () => this.openOrdersPreviewModal());
         document.getElementById('btnDownloadTxnPreview').addEventListener('click', () => this.openTransactionsPreviewModal());
 
@@ -1224,6 +1256,7 @@
           resetDateBtn.addEventListener('click', () => {
             document.getElementById('orderFromDate').value = '';
             document.getElementById('orderToDate').value = '';
+            if (orderNoSearchInput) orderNoSearchInput.value = '';
             this.renderAllOrders();
           });
         }
@@ -1330,6 +1363,20 @@
 
         document.getElementById('btnTodayInventory').addEventListener('click', () => this.openTodayInventoryModal());
         document.getElementById('btnInventoryHistory').addEventListener('click', () => this.openInventoryHistoryModal());
+
+        // Inventory history date filter
+        ['histFromDate', 'histToDate'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('change', () => this.renderInventoryHistory());
+        });
+        const resetHistDateBtn = document.getElementById('btnResetHistDate');
+        if (resetHistDateBtn) {
+          resetHistDateBtn.addEventListener('click', () => {
+            document.getElementById('histFromDate').value = '';
+            document.getElementById('histToDate').value = '';
+            this.renderInventoryHistory();
+          });
+        }
         document.getElementById('btnTodayInvPDF').addEventListener('click', () => this.downloadTodayInventoryPDF());
 
         document.getElementById('formFruit').addEventListener('submit', (e) => {
@@ -1551,10 +1598,10 @@
         if (dup) return this.toast('Fruit with this name already exists', 'error');
 
         if (existingIndex > -1) {
-          // Editing: hide supplier section (not applicable for edits)
+          // Editing: hide supplier section (not applicable for edits); keep original dateAdded
           inv[existingIndex] = { ...inv[existingIndex], name, category, unit, costPrice, sellPrice, qty };
         } else {
-          inv.push({ id, name, category, unit, costPrice, sellPrice, qty, purchasedQty: qty, soldQty: 0 });
+          inv.push({ id, name, category, unit, costPrice, sellPrice, qty, purchasedQty: qty, soldQty: 0, dateAdded: new Date().toISOString() });
         }
 
         StorageService.set('inventory', inv);
@@ -1621,6 +1668,14 @@
         }
       }
 
+      // Formats an ISO date string for display; falls back to '-' if missing.
+      formatDate(iso) {
+        if (!iso) return '-';
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '-';
+        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+
       renderInventory() {
         const inv = StorageService.get('inventory').filter(item => Number(item.qty) > 0);
         const tbody = document.getElementById('inventoryTbody');
@@ -1631,7 +1686,7 @@
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td><strong>${item.name}</strong></td>
-            <td>${item.category}</td>
+            <td>${this.formatDate(item.dateAdded)}</td>
             <td>${item.unit}</td>
             <td><strong>${item.qty}</strong></td>
             <td>${item.purchasedQty || 0}</td>
@@ -1684,17 +1739,29 @@
       }
 
       openInventoryHistoryModal() {
-        const inv = StorageService.get('inventory').filter(item => Number(item.qty) <= 0);
+        this.renderInventoryHistory();
+        document.getElementById('modalInventoryHistory').classList.add('active');
+      }
+
+      renderInventoryHistory() {
+        const fromDate = (document.getElementById('histFromDate') || {}).value || '';
+        const toDate   = (document.getElementById('histToDate')   || {}).value || '';
+
+        const inv = StorageService.get('inventory').filter(item => {
+          if (Number(item.qty) > 0) return false;
+          if (!this.isWithinDateRange(item.dateAdded, fromDate, toDate)) return false;
+          return true;
+        });
         const tbody = document.getElementById('inventoryHistoryTbody');
         tbody.innerHTML = '';
         if (inv.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:1rem; color:var(--text-muted);">No out-of-stock history yet.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:1rem; color:var(--text-muted);">No out-of-stock history found for the selected filter.</td></tr>`;
         } else {
           inv.forEach(item => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
               <td><strong>${item.name}</strong></td>
-              <td>${item.category}</td>
+              <td>${this.formatDate(item.dateAdded)}</td>
               <td>${item.unit}</td>
               <td><strong>${item.qty}</strong></td>
               <td>₹${item.costPrice.toFixed(2)}</td>
@@ -2169,7 +2236,7 @@
       // Builds the customer's transaction log rows (Sale + Payment Received entries
       // for this customer, oldest first) with a running balance.
       // Handles the case where customerName field is empty by also matching via order ref.
-      getCustomerTxnLogRows(customerName) {
+      getCustomerTxnLogRows(customerName, fromDate = '', toDate = '') {
         // Build set of order numbers belonging to this customer
         const custOrders = StorageService.get('orders')
           .filter(o => o.customerName && o.customerName.toLowerCase() === customerName.toLowerCase());
@@ -2179,6 +2246,7 @@
           .filter(t => {
             const isRelevantType = t.type === 'Sale' || t.type === 'Payment Received' || t.type === 'Customer Payment';
             if (!isRelevantType) return false;
+            if (!this.isWithinDateRange(t.date, fromDate, toDate)) return false;
             // Match by customerName field
             if (t.customerName && t.customerName.toLowerCase() === customerName.toLowerCase()) return true;
             // Match by order ref lookup
@@ -2201,7 +2269,8 @@
       }
 
       sendCustomerTxnLogWhatsApp(customerName) {
-        const rows = this.getCustomerTxnLogRows(customerName);
+        const { fromDate, toDate } = this.getCustDateRange();
+        const rows = this.getCustomerTxnLogRows(customerName, fromDate, toDate);
         if (rows.length === 0) return this.toast('No transactions to send', 'warning');
 
         const customer = StorageService.get('customers').find(c => c.name.toLowerCase() === customerName.toLowerCase());
@@ -2209,7 +2278,8 @@
 
         const { totalAmt, totalPaid, totalPending } = this.computeTxnTotals(
           StorageService.get('transactions').filter(t => (t.type === 'Sale' || t.type === 'Payment Received') &&
-            t.customerName && t.customerName.toLowerCase() === customerName.toLowerCase())
+            t.customerName && t.customerName.toLowerCase() === customerName.toLowerCase() &&
+            this.isWithinDateRange(t.date, fromDate, toDate))
         );
 
         let text = `📋 *TRANSACTION SUMMARY FOR ${customerName.toUpperCase()}*\n`;
@@ -2283,11 +2353,13 @@
         const sortedOrders = [...orders].sort((a, b) => new Date(b.date) - new Date(a.date));
         const fromDate = document.getElementById('orderFromDate').value;
         const toDate   = document.getElementById('orderToDate').value;
+        const orderNoSearch = (document.getElementById('orderNoSearchInput') || {}).value?.trim().toLowerCase() || '';
 
         const filteredOrders = sortedOrders.filter(o => {
           const d = new Date(o.date).toISOString().split('T')[0];
           if (fromDate && d < fromDate) return false;
           if (toDate   && d > toDate)   return false;
+          if (orderNoSearch && !o.orderNo.toLowerCase().includes(orderNoSearch)) return false;
           return true;
         });
 
@@ -3562,9 +3634,31 @@
         });
       }
 
+      // Reads the Customer page's From/To date filter values.
+      getCustDateRange() {
+        return {
+          fromDate: (document.getElementById('custFromDate') || {}).value || '',
+          toDate: (document.getElementById('custToDate') || {}).value || ''
+        };
+      }
+
+      // Checks whether a date string falls within [fromDate, toDate] (inclusive). Empty bounds = no limit.
+      isWithinDateRange(dateStr, fromDate, toDate) {
+        if (!fromDate && !toDate) return true;
+        const d = new Date(dateStr).toISOString().split('T')[0];
+        if (fromDate && d < fromDate) return false;
+        if (toDate && d > toDate) return false;
+        return true;
+      }
+
       showCustomerOrders(customerName) {
         this.currentCustomerOrdName = customerName;
-        const orders = StorageService.get('orders').filter(o => o.customerName.toLowerCase() === customerName.toLowerCase() && o.status !== 'Cancelled');
+        const { fromDate, toDate } = this.getCustDateRange();
+        const orders = StorageService.get('orders').filter(o =>
+          o.customerName.toLowerCase() === customerName.toLowerCase() &&
+          o.status !== 'Cancelled' &&
+          this.isWithinDateRange(o.date, fromDate, toDate)
+        );
 
         const container = document.getElementById('custOrdList');
         container.innerHTML = '';
@@ -3640,7 +3734,9 @@
         document.getElementById('custOrdTotal').innerText = `₹${sumTotal.toFixed(2)}`;
         document.getElementById('custOrdPaid').innerText = `₹${sumPaid.toFixed(2)}`;
         document.getElementById('custOrdPending').innerText = `₹${sumPending.toFixed(2)}`;
-        document.getElementById('custOrdModalTitle').innerText = `Orders for ${customerName}`;
+        document.getElementById('custOrdModalTitle').innerText = (fromDate || toDate)
+          ? `Orders for ${customerName} (${fromDate || '...'} → ${toDate || '...'})`
+          : `Orders for ${customerName}`;
 
         const whatsappBtn = document.getElementById('btnCustOrdWhatsApp');
         if (whatsappBtn) {
@@ -3653,6 +3749,7 @@
 
       showCustomerTransactionLog(customerName) {
         this.currentCustomerTxnLogName = customerName;
+        const { fromDate, toDate } = this.getCustDateRange();
 
         // Build set of order numbers for this customer (for fallback matching)
         const custOrders = StorageService.get('orders')
@@ -3662,6 +3759,7 @@
         // Broad filter: match by customerName field, OR by order ref, OR by remarks
         const allTxns = StorageService.get('transactions')
           .filter(t => {
+            if (!this.isWithinDateRange(t.date, fromDate, toDate)) return false;
             if (t.customerName && t.customerName.toLowerCase() === customerName.toLowerCase()) return true;
             if (t.ref && custOrderNos.has(t.ref)) return true;
             if (t.remarks && t.remarks.toLowerCase().includes(customerName.toLowerCase())) return true;
@@ -3714,7 +3812,9 @@
         document.getElementById('custTxnLogTotal').innerText   = `₹${totalBill.toFixed(2)}`;
         document.getElementById('custTxnLogPaid').innerText    = `₹${totalPaid.toFixed(2)}`;
         document.getElementById('custTxnLogPending').innerText = `₹${totalPending.toFixed(2)}`;
-        document.getElementById('custTxnLogModalTitle').innerText = `Transactions: ${customerName}`;
+        document.getElementById('custTxnLogModalTitle').innerText = (fromDate || toDate)
+          ? `Transactions: ${customerName} (${fromDate || '...'} → ${toDate || '...'})`
+          : `Transactions: ${customerName}`;
 
         const whatsappBtn = document.getElementById('btnCustTxnLogWhatsApp');
         if (whatsappBtn) {
@@ -3727,8 +3827,12 @@
 
       // Generates the customer orders PDF with full item details per order.
       // Returns the jsPDF doc so it can also be used for WhatsApp sharing.
-      _buildCustomerOrdersPDF(customerName) {
-        const orders = StorageService.get('orders').filter(o => o.customerName.toLowerCase() === customerName.toLowerCase() && o.status !== 'Cancelled');
+      _buildCustomerOrdersPDF(customerName, fromDate = '', toDate = '') {
+        const orders = StorageService.get('orders').filter(o =>
+          o.customerName.toLowerCase() === customerName.toLowerCase() &&
+          o.status !== 'Cancelled' &&
+          this.isWithinDateRange(o.date, fromDate, toDate)
+        );
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         const pageW = doc.internal.pageSize.getWidth();
@@ -3831,7 +3935,8 @@
       downloadCustomerOrdersPDF() {
         if (!this.currentCustomerOrdName) return;
         const customerName = this.currentCustomerOrdName;
-        const doc = this._buildCustomerOrdersPDF(customerName);
+        const { fromDate, toDate } = this.getCustDateRange();
+        const doc = this._buildCustomerOrdersPDF(customerName, fromDate, toDate);
         doc.save(`${customerName}_Orders.pdf`);
         this.toast('PDF downloaded successfully');
       }
@@ -3840,9 +3945,10 @@
       shareCustomerOrdersPDFWhatsApp(customerName) {
         const customer = StorageService.get('customers').find(c => c.name.toLowerCase() === customerName.toLowerCase());
         const phone = customer ? customer.phone : '';
+        const { fromDate, toDate } = this.getCustDateRange();
 
         // Step 1: Download the PDF
-        const doc = this._buildCustomerOrdersPDF(customerName);
+        const doc = this._buildCustomerOrdersPDF(customerName, fromDate, toDate);
         doc.save(`${customerName}_Orders.pdf`);
 
         // Step 2: Open WhatsApp after brief delay
@@ -3856,7 +3962,8 @@
       downloadCustomerTxnLogPDF() {
         if (!this.currentCustomerTxnLogName) return;
         const customerName = this.currentCustomerTxnLogName;
-        const rows = this.getCustomerTxnLogRows(customerName);
+        const { fromDate, toDate } = this.getCustDateRange();
+        const rows = this.getCustomerTxnLogRows(customerName, fromDate, toDate);
 
         // Use broad filter (same as showCustomerTransactionLog)
         const custOrders = StorageService.get('orders')
@@ -3865,6 +3972,7 @@
         const broadTxns = StorageService.get('transactions').filter(t => {
           const isRelevantType = t.type === 'Sale' || t.type === 'Payment Received' || t.type === 'Customer Payment';
           if (!isRelevantType) return false;
+          if (!this.isWithinDateRange(t.date, fromDate, toDate)) return false;
           if (t.customerName && t.customerName.toLowerCase() === customerName.toLowerCase()) return true;
           if (t.ref && custOrderNos.has(t.ref)) return true;
           if (t.remarks && t.remarks.toLowerCase().includes(customerName.toLowerCase())) return true;

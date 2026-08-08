@@ -362,6 +362,7 @@
             <div class="card-title">
               Fruit Inventory
               <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                <button class="btn btn-secondary btn-sm" id="btnInventoryHistory"><i class="fa-solid fa-clock-rotate-left"></i> History</button>
                 <button class="btn btn-secondary btn-sm" id="btnTodayInventory"><i class="fa-solid fa-calendar-day"></i> Today's Summary</button>
                 <button class="btn btn-primary btn-sm" id="btnOpenAddFruit"><i class="fa-solid fa-plus"></i> Add Fruit</button>
               </div>
@@ -878,6 +879,7 @@
           <thead>
             <tr>
               <th>Fruit</th>
+              <th>Supplier</th>
               <th>Unit</th>
               <th>Opening Stock</th>
               <th>Added Today</th>
@@ -894,6 +896,29 @@
       </div>
     </div>
   </div>
+
+  <!-- INVENTORY HISTORY MODAL (OUT-OF-STOCK / INACTIVE ITEMS) -->
+  <div class="modal-overlay" id="modalInventoryHistory">
+    <div class="modal" style="max-width:800px;">
+      <div class="modal-header">
+        <div class="modal-title"><i class="fa-solid fa-clock-rotate-left" style="margin-right:0.4rem;"></i>Inventory History (Out of Stock)</div>
+        <i class="fa-solid fa-xmark modal-close" style="cursor:pointer;"></i>
+      </div>
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.75rem;">Fruits that previously had stock but are now at zero quantity. They're hidden from the main Inventory list until restocked.</p>
+      <div class="table-responsive" style="max-height:420px; overflow-y:auto;">
+        <table>
+          <thead>
+            <tr><th>Fruit</th><th>Category</th><th>Unit</th><th>Available Qty</th><th>Cost Price</th><th>Selling Price</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="inventoryHistoryTbody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:0.5rem; flex-wrap:wrap; margin-top:1rem;">
+        <button class="btn btn-outline btn-sm modal-close">Close</button>
+      </div>
+    </div>
+  </div>
+
 
   <!-- MISCELLANEOUS EXPENSES MODAL (shown before checkout) -->
   <div class="modal-overlay" id="modalMiscExpenses">
@@ -941,7 +966,7 @@
       customerLedger: [],
       supplierLedger: [],
       billCounter: 101,
-      sheetApiUrl: 'https://script.google.com/macros/s/AKfycbxwMSas-6VG53zk5y5nQiCBzpWXwucEBL0ER2MVCGC1APcsufxC1pZ5SJXWha1OrOnc/exec'
+      sheetApiUrl: 'https://script.google.com/macros/s/AKfycbx_DefaultHardcodedEndpoint/exec'
     };
 
     /* --- STORAGE SERVICE MODULE (HYBRID LOCALSTORAGE & GOOGLE SHEETS) --- */
@@ -1130,7 +1155,7 @@
         this.syncWithDrive(false);
         setInterval(() => {
           this.syncWithDrive(false);
-        }, 300000);
+        }, 3600000); // 1 hour
       }
 
       showSpinner(show = true) {
@@ -1304,6 +1329,7 @@
         });
 
         document.getElementById('btnTodayInventory').addEventListener('click', () => this.openTodayInventoryModal());
+        document.getElementById('btnInventoryHistory').addEventListener('click', () => this.openInventoryHistoryModal());
         document.getElementById('btnTodayInvPDF').addEventListener('click', () => this.downloadTodayInventoryPDF());
 
         document.getElementById('formFruit').addEventListener('submit', (e) => {
@@ -1596,7 +1622,7 @@
       }
 
       renderInventory() {
-        const inv = StorageService.get('inventory');
+        const inv = StorageService.get('inventory').filter(item => Number(item.qty) > 0);
         const tbody = document.getElementById('inventoryTbody');
         tbody.innerHTML = '';
         inv.forEach(item => {
@@ -1643,6 +1669,61 @@
           btn.addEventListener('click', () => this.deleteFruit(btn.dataset.id));
         });
       }
+
+      // Finds the supplier of the most recent purchase for a given fruit.
+      // Inventory items don't store a permanent supplier link, so we derive
+      // it from purchase history (falls back to '-' if never purchased).
+      lastSupplierNameForFruit(fruitId) {
+        const purchases = StorageService.get('purchases')
+          .filter(p => p.fruitId === fruitId)
+          .sort((a, b) => new Date(b.date) - new Date(a.date));
+        if (purchases.length === 0) return '-';
+        const suppliers = StorageService.get('suppliers');
+        const supp = suppliers.find(s => s.id === purchases[0].suppId);
+        return supp ? supp.name : '-';
+      }
+
+      openInventoryHistoryModal() {
+        const inv = StorageService.get('inventory').filter(item => Number(item.qty) <= 0);
+        const tbody = document.getElementById('inventoryHistoryTbody');
+        tbody.innerHTML = '';
+        if (inv.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:1rem; color:var(--text-muted);">No out-of-stock history yet.</td></tr>`;
+        } else {
+          inv.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td><strong>${item.name}</strong></td>
+              <td>${item.category}</td>
+              <td>${item.unit}</td>
+              <td><strong>${item.qty}</strong></td>
+              <td>₹${item.costPrice.toFixed(2)}</td>
+              <td>₹${item.sellPrice.toFixed(2)}</td>
+              <td><button class="btn btn-outline btn-sm hist-edit-fruit" data-id="${item.id}"><i class="fa-solid fa-pen"></i> Restock</button></td>
+            `;
+            tbody.appendChild(tr);
+          });
+          tbody.querySelectorAll('.hist-edit-fruit').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const item = StorageService.get('inventory').find(x => x.id === btn.dataset.id);
+              if (item) {
+                document.getElementById('modalInventoryHistory').classList.remove('active');
+                document.getElementById('fruitId').value = item.id;
+                document.getElementById('fruitName').value = item.name;
+                document.getElementById('fruitCat').value = item.category;
+                document.getElementById('fruitUnit').value = item.unit;
+                document.getElementById('fruitCost').value = item.costPrice;
+                document.getElementById('fruitPrice').value = item.sellPrice;
+                document.getElementById('fruitQty').value = item.qty;
+                document.getElementById('fruitModalTitle').innerText = 'Edit Fruit';
+                document.getElementById('modalFruit').classList.add('active');
+              }
+            });
+          });
+        }
+        document.getElementById('modalInventoryHistory').classList.add('active');
+      }
+
 
       renderPOSProducts(query = '', orderNoQuery = '') {
         const inv = StorageService.get('inventory').filter(x => x.qty > 0 && x.name.toLowerCase().includes(query.toLowerCase()));
@@ -3873,6 +3954,7 @@
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td><strong>${item.name}</strong></td>
+            <td>${this.lastSupplierNameForFruit(item.id)}</td>
             <td>${item.unit}</td>
             <td>${opening.toFixed(2)}</td>
             <td style="color:var(--success); font-weight:700;">${added.toFixed(2)}</td>
@@ -3916,6 +3998,7 @@
           const opening = Math.max(0, pending + sold - added);
           return [
             item.name,
+            this.lastSupplierNameForFruit(item.id),
             item.unit,
             opening.toFixed(2),
             added.toFixed(2),
@@ -3942,7 +4025,7 @@
         doc.text(`Date: ${new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}`, 14, 34);
 
         doc.autoTable({
-          head: [['Fruit', 'Unit', 'Opening Stock', 'Added Today', 'Sold Today', 'Pending Stock']],
+          head: [['Fruit', 'Supplier', 'Unit', 'Opening Stock', 'Added Today', 'Sold Today', 'Pending Stock']],
           body: rows,
           startY: 40,
           margin: { left: 14, right: 14 },

@@ -2135,6 +2135,7 @@
             });
 
             const incrementalPayment = paidAmount - existingOrder.paidAmount;
+            const amountChanged = grandTotal !== existingOrder.grandTotal;
 
             orders[existingOrderIndex] = {
               ...existingOrder,
@@ -2146,16 +2147,35 @@
               date: existingOrder.date
             };
 
-            if (incrementalPayment !== 0) {
+            // Keep the original "Sale" transaction row in sync with the edited order.
+            // It must always mirror the order's current amount/paid/pending (the order
+            // record is the source of truth) — otherwise adding a new item bumps the
+            // order's grandTotal but the Transactions Audit Log / customer ledger keep
+            // showing the stale total from when the order was first placed.
+            const saleTxn = txns.find(t => t.ref === orderNo && t.type === 'Sale');
+            if (saleTxn) {
+              saleTxn.amount = grandTotal;
+              saleTxn.paidAmount = paidAmount;
+              saleTxn.pendingAmount = pendingAmount;
+            }
+
+            // Audit-only log entry describing what changed in this edit (item/amount change
+            // and/or payment change). amount is always 0 so it can never double-count toward
+            // Paid/Pending totals — those already come from the updated Sale row above. This
+            // just makes the edit visible as its own row in the Transactions Audit Log.
+            if (amountChanged || incrementalPayment !== 0) {
+              const changeParts = [];
+              if (amountChanged) changeParts.push(`order total changed from ₹${existingOrder.grandTotal.toFixed(2)} to ₹${grandTotal.toFixed(2)}`);
+              if (incrementalPayment !== 0) changeParts.push(`payment ${incrementalPayment > 0 ? 'increased' : 'decreased'} by ₹${Math.abs(incrementalPayment).toFixed(2)}`);
               txns.push({
                 id: 't_' + Date.now(),
                 date: new Date().toISOString(),
                 type: 'Order Updated',
                 customerName: cust.name,
                 ref: orderNo,
-                amount: Math.abs(incrementalPayment),
+                amount: 0,
                 payMode,
-                remarks: `Updated Order payment for ${cust.name}`
+                remarks: `Order ${orderNo} updated for ${cust.name} — ${changeParts.join('; ')}`
               });
             }
             finalOrder = orders[existingOrderIndex];
@@ -2309,8 +2329,9 @@
             if (t.customerName && t.customerName.toLowerCase() === customerName.toLowerCase()) return true;
             // Match by order ref lookup
             if (t.ref && custOrderNos.has(t.ref)) return true;
-            // Match by remarks containing customer name
-            if (t.remarks && t.remarks.toLowerCase().includes(customerName.toLowerCase())) return true;
+            // Match by remarks containing customer name (guards against a different
+            // customer whose name is this one plus a "-2"-style suffix, e.g. "vijay" vs "vijay-2")
+            if (t.remarks && this.matchesSearch(t.remarks, customerName)) return true;
             return false;
           })
           .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -2681,6 +2702,27 @@
         return 'Walk-in Customer';
       }
 
+      // Substring search that avoids false positives between distinctly-named entries where
+      // one name is a prefix of another (e.g. searching "vijay" should not also match a
+      // separate customer named "vijay-2"). A match immediately followed by a hyphen+digit
+      // suffix in the source text is rejected, since that pattern marks a different, distinct
+      // name rather than a continuation of the searched-for one. All other substring matches
+      // (mid-word, space-separated, etc.) behave exactly as a normal .includes() would.
+      matchesSearch(text, query) {
+        if (!text || !query) return false;
+        const t = text.toLowerCase();
+        const q = query.toLowerCase();
+        let fromIndex = 0;
+        let idx;
+        while ((idx = t.indexOf(q, fromIndex)) !== -1) {
+          const after = t.charAt(idx + q.length);
+          const isSuffixedName = after === '-' && /\d/.test(t.charAt(idx + q.length + 1));
+          if (!isSuffixedName) return true;
+          fromIndex = idx + 1;
+        }
+        return false;
+      }
+
       // Returns the transactions matching the currently active Transactions-page
       // search box + date filter. Shared by the table render, the preview popup,
       // the PDF export and the WhatsApp share so they all agree on what "filtered" means.
@@ -2693,10 +2735,10 @@
         return txns.filter(t => {
           const resolvedName = this.resolveCustomerName(t).toLowerCase();
           const matchQuery = !searchVal ||
-            (t.customerName && t.customerName.toLowerCase().includes(searchVal)) ||
+            (t.customerName && this.matchesSearch(t.customerName, searchVal)) ||
             (t.ref && t.ref.toLowerCase().includes(searchVal)) ||
-            (t.remarks && t.remarks.toLowerCase().includes(searchVal)) ||
-            resolvedName.includes(searchVal);
+            (t.remarks && this.matchesSearch(t.remarks, searchVal)) ||
+            this.matchesSearch(resolvedName, searchVal);
 
           const d = new Date(t.date).toISOString().split('T')[0];
           const matchDate = (!fromDate || d >= fromDate) && (!toDate || d <= toDate);
@@ -4010,7 +4052,9 @@
             if (!this.isWithinDateRange(t.date, fromDate, toDate)) return false;
             if (t.customerName && t.customerName.toLowerCase() === customerName.toLowerCase()) return true;
             if (t.ref && custOrderNos.has(t.ref)) return true;
-            if (t.remarks && t.remarks.toLowerCase().includes(customerName.toLowerCase())) return true;
+            // Guards against a different customer whose name is this one plus a "-2"-style
+            // suffix (e.g. "vijay" should not also pull in "vijay-2")
+            if (t.remarks && this.matchesSearch(t.remarks, customerName)) return true;
             return false;
           })
           .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -4127,7 +4171,9 @@
           if (!this.isWithinDateRange(t.date, fromDate, toDate)) return false;
           if (t.customerName && t.customerName.toLowerCase() === customerName.toLowerCase()) return true;
           if (t.ref && custOrderNos.has(t.ref)) return true;
-          if (t.remarks && t.remarks.toLowerCase().includes(customerName.toLowerCase())) return true;
+          // Guards against a different customer whose name is this one plus a "-2"-style
+          // suffix (e.g. "vijay" should not also pull in "vijay-2")
+          if (t.remarks && this.matchesSearch(t.remarks, customerName)) return true;
           return false;
         });
 

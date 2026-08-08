@@ -276,7 +276,7 @@
     <!-- SIDEBAR NAVIGATION -->
     <sidebar id="sidebarNav">
       <div class="sidebar-brand">
-        <span><span class="logo-badge logo-badge-sm"><i class="fa-solid fa-apple-whole"></i></span> LKM & NArasimhalu Fruits Merchant</span>
+        <span><span class="logo-badge logo-badge-sm"><i class="fa-solid fa-apple-whole"></i></span> LKM & Narasimhalu Fruits Merchant</span>
         <button class="btn btn-outline btn-sm no-print" id="btnCloseSidebar" style="display:none; padding: 0.2rem 0.4rem;"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <ul class="sidebar-menu">
@@ -505,7 +505,10 @@
             </div>
           </div>
           <div class="card" style="margin-bottom:1rem;">
-            <div class="card-title">Customer Pending Dues</div>
+            <div class="card-title">
+              <span>Customer Pending Dues</span>
+              <span style="font-size:0.85rem; color:var(--danger); font-weight:700;">Total Pending Collection: &#8377;<span id="totalCustPending">0.00</span></span>
+            </div>
             <div class="table-responsive">
               <table class="grid-table">
                 <thead><tr><th>Customer</th><th>Order No</th><th>Amount</th><th>Collect</th><th>Total</th></tr></thead>
@@ -515,7 +518,10 @@
           </div>
           <div class="grid grid-2">
             <div class="card">
-              <div class="card-title">Supplier Outstanding Payables</div>
+              <div class="card-title">
+                <span>Supplier Outstanding Payables</span>
+                <span style="font-size:0.85rem; color:var(--danger); font-weight:700;">Total Pending Payments: &#8377;<span id="totalSuppPending">0.00</span></span>
+              </div>
               <div class="table-responsive">
                 <table>
                   <thead><tr><th>Supplier</th><th>Pending</th><th>Action</th></tr></thead>
@@ -711,10 +717,12 @@
           <div><strong>Customer:</strong> <span id="invCust"></span></div>
           <div><strong>Phone:</strong> <span id="invPhone"></span></div>
         </div>
-        <table style="width:100%; margin-bottom:0.75rem; font-size:0.8rem;">
-          <thead><tr><th>Item</th><th>Qty</th><th>Rate</th><th style="text-align:right;">Total</th></tr></thead>
-          <tbody id="invItemsTbody"></tbody>
-        </table>
+        <div class="report-table-wrap">
+          <table style="width:100%; min-width:420px; margin-bottom:0.75rem; font-size:0.8rem; white-space:nowrap;">
+            <thead><tr><th>Item</th><th>Qty</th><th>Rate</th><th style="text-align:right;">Total</th></tr></thead>
+            <tbody id="invItemsTbody"></tbody>
+          </table>
+        </div>
         <!-- Misc charges section (hidden when no misc charges) -->
         <div id="invMiscSection" style="display:none; margin-bottom:0.5rem; font-size:0.8rem; border-top:1px dashed var(--border-color); padding-top:0.4rem;">
           <div style="font-weight:700; color:var(--primary); font-size:0.75rem; margin-bottom:0.2rem;"><i class="fa-solid fa-receipt"></i> Additional Charges</div>
@@ -4432,6 +4440,12 @@
 
         custTbody.innerHTML = '';
         suppTbody.innerHTML = '';
+
+        // ── Header totals: sum of all customer pending dues and all supplier pending payables ──
+        const totalCustPendingEl = document.getElementById('totalCustPending');
+        const totalSuppPendingEl = document.getElementById('totalSuppPending');
+        if (totalCustPendingEl) totalCustPendingEl.innerText = orders.reduce((sum, o) => sum + (o.pendingAmount || 0), 0).toFixed(2);
+        if (totalSuppPendingEl) totalSuppPendingEl.innerText = purchases.reduce((sum, p) => sum + (p.pending || 0), 0).toFixed(2);
 
         // ── Customer Pending Dues: grouped by customer name, listing each order (Order No,
         // Amount) under it, followed by a "Total Amount" subtotal row for that customer. ──

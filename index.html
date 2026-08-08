@@ -46,6 +46,11 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
     body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; overflow-x: hidden; display: flex; flex-direction: column; transition: var(--transition); }
+    /* While any modal is open, lock background scrolling so mouse-wheel / middle-click
+       autoscroll always acts on the modal's own content instead of the dimmed page behind
+       it - otherwise a scroll or middle-click can land on the background list and make the
+       modal's buttons feel unresponsive. */
+    body.modal-open { overflow: hidden; }
 
     /* AUTH / LOGIN SCREEN */
     #authContainer {
@@ -57,6 +62,8 @@
       box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center;
     }
     .login-card .brand { font-size: 1.8rem; font-weight: 800; color: var(--primary); margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; flex-wrap: wrap; }
+    .logo-badge { display: inline-flex; align-items: center; justify-content: center; width: 2.4rem; height: 2.4rem; border-radius: 50%; background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%); color: #fff; font-size: 1.15rem; box-shadow: 0 3px 8px rgba(0,0,0,0.15); flex-shrink: 0; }
+    .logo-badge.logo-badge-sm { width: 1.9rem; height: 1.9rem; font-size: 0.9rem; }
     .login-card .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem; }
 
     /* LAYOUT STRUCTURE - RESPONSIVE FOR MOBILE, TAB, DESKTOP */
@@ -181,11 +188,18 @@
     }
 
     /* MODAL SYSTEM */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: var(--transition); z-index: 1000; padding: 1rem; overflow-y: auto; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); display: flex; align-items: flex-start; justify-content: center; opacity: 0; pointer-events: none; transition: var(--transition); z-index: 1000; padding: 2rem 1rem; overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
     .modal-overlay.active { opacity: 1; pointer-events: auto; }
-    .modal { background: var(--card-bg); width: 100%; max-width: 520px; border-radius: var(--radius); padding: 1.25rem; box-shadow: 0 15px 30px rgba(0,0,0,0.2); transform: translateY(-20px); transition: var(--transition); max-height: 90vh; overflow-y: auto; overflow-x: hidden; margin: auto; }
+    .modal { background: var(--card-bg); width: 100%; max-width: 520px; border-radius: var(--radius); padding: 1.25rem; box-shadow: 0 15px 30px rgba(0,0,0,0.2); transform: translateY(-20px); transition: var(--transition); max-height: calc(100vh - 4rem); overflow-y: auto; overflow-x: hidden; margin: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: var(--accent) var(--bg-color); }
     .modal-overlay.active .modal { transform: translateY(0); }
     .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; margin-bottom: 1rem; }
+    /* Explicit, always-visible scrollbar for modal content (Webkit/Chromium/Edge) so long
+       popups (e.g. the invoice preview) clearly show a scrollbar instead of relying on the
+       OS's auto-hide thin/overlay scrollbar, which can look like scrolling "isn't working". */
+    .modal::-webkit-scrollbar { width: 10px; }
+    .modal::-webkit-scrollbar-track { background: var(--bg-color); border-radius: 4px; }
+    .modal::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+    .modal::-webkit-scrollbar-thumb:hover { background: var(--primary); }
 
     /* REPORT TABLE HORIZONTAL SCROLL WRAPPER - used by Customer Orders popup, Purchase Preview,
        All Orders/Purchases reports. Forces a clearly visible horizontal scrollbar whenever the
@@ -239,7 +253,7 @@
   <!-- AUTH / LOGIN MODULE -->
   <div id="authContainer">
     <div class="login-card">
-      <div class="brand"><i class="fa-solid fa-lemon"></i> LKM & Narasimhalu Fruits Merchant</div>
+      <div class="brand"><span class="logo-badge"><i class="fa-solid fa-apple-whole"></i></span> LKM & Narasimhalu Fruits Merchant</div>
       <div class="subtitle">Enterprise ERP & POS System</div>
       <form id="loginForm">
         <div class="form-group">
@@ -262,7 +276,7 @@
     <!-- SIDEBAR NAVIGATION -->
     <sidebar id="sidebarNav">
       <div class="sidebar-brand">
-        <span><i class="fa-solid fa-apple-whole"></i> LKM & NArasimhalu Fruits Merchant</span>
+        <span><span class="logo-badge logo-badge-sm"><i class="fa-solid fa-apple-whole"></i></span> LKM & NArasimhalu Fruits Merchant</span>
         <button class="btn btn-outline btn-sm no-print" id="btnCloseSidebar" style="display:none; padding: 0.2rem 0.4rem;"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <ul class="sidebar-menu">
@@ -1361,6 +1375,19 @@
             document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
           });
         });
+
+        // Keep body.modal-open in sync with whichever modal(s) are active, no matter which
+        // code path opened/closed them, so background scrolling is always locked while any
+        // modal is showing (fixes background scroll/middle-click-autoscroll stealing input
+        // meant for a modal's buttons).
+        const syncModalOpenState = () => {
+          const anyActive = document.querySelector('.modal-overlay.active') !== null;
+          document.body.classList.toggle('modal-open', anyActive);
+        };
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+          new MutationObserver(syncModalOpenState).observe(overlay, { attributes: true, attributeFilter: ['class'] });
+        });
+        syncModalOpenState();
 
         document.getElementById('btnOpenAddFruit').addEventListener('click', () => {
           document.getElementById('formFruit').reset();
@@ -3344,12 +3371,25 @@
       // Mirrors the "Order Invoice" popup (#printableInvoice) field-for-field and in the same
       // order, so the downloaded PDF always matches exactly what was just shown on screen.
       generateInvoicePDF() {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        const order = this.currentInvoice;
-        const pageW = doc.internal.pageSize.getWidth();
-        const cName = (order.customerName && order.customerName.trim() !== '') ? order.customerName : 'Walk-in Customer';
-        const cancelledTag = order.status === 'Cancelled' ? ' (CANCELLED)' : '';
+        try {
+          if (!window.jspdf || !window.jspdf.jsPDF) {
+            this.toast('PDF library failed to load. Check your internet connection and reload the page.');
+            return;
+          }
+          const order = this.currentInvoice;
+          if (!order) {
+            this.toast('No invoice selected. Please open View again.');
+            return;
+          }
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF();
+          if (typeof doc.autoTable !== 'function') {
+            this.toast('PDF table library failed to load. Check your internet connection and reload the page.');
+            return;
+          }
+          const pageW = doc.internal.pageSize.getWidth();
+          const cName = (order.customerName && order.customerName.trim() !== '') ? order.customerName : 'Walk-in Customer';
+          const cancelledTag = order.status === 'Cancelled' ? ' (CANCELLED)' : '';
 
         // ── Header block (centered, matches the popup's centered header) ──
         doc.setFontSize(14);
@@ -3366,26 +3406,36 @@
         doc.setFontSize(8);
         doc.text(`Date: ${new Date(order.date).toLocaleString()}`, pageW / 2, 36, { align: 'center' });
         doc.setDrawColor(200, 200, 200);
-        doc.setLineDashPattern([1, 1], 0);
-        doc.line(14, 39, pageW - 14, 39);
-        doc.setLineDashPattern([], 0);
+        try {
+          doc.setLineDashPattern([1, 1], 0);
+          doc.line(14, 39, pageW - 14, 39);
+          doc.setLineDashPattern([], 0);
+        } catch (dashErr) {
+          // Dashed-line support can vary by jsPDF build; fall back to a solid rule so
+          // this purely cosmetic divider never blocks the rest of the PDF.
+          doc.line(14, 39, pageW - 14, 39);
+        }
 
         // ── Customer block (left-aligned, matches the popup) ──
         doc.setFontSize(9);
         doc.setFont(undefined, 'bold');
         doc.text('Customer:', 14, 46);
         doc.setFont(undefined, 'normal');
-        doc.text(cName, 34, 46);
+        doc.text(String(cName), 34, 46);
         doc.setFont(undefined, 'bold');
         doc.text('Phone:', 14, 51);
         doc.setFont(undefined, 'normal');
-        doc.text(order.phone || 'N/A', 34, 51);
+        // order.phone can be a non-string (e.g. a plain number) on older saved orders from
+        // before this field was standardized on text input - jsPDF's text() throws on
+        // anything that isn't a string/Array, so always coerce it explicitly.
+        doc.text(String(order.phone || 'N/A'), 34, 51);
 
         // ── Items table (Item / Qty / Rate / Total, same columns as the popup) ──
-        const itemRows = order.items.map(i => [i.name, `${i.qty} ${i.unit}`, `Rs.${parseFloat(i.rate).toFixed(2)}`, `Rs.${(i.qty * i.rate).toFixed(2)}`]);
+        const itemsList = order.items || [];
+        const itemRows = itemsList.map(i => [String(i.name || ''), `${i.qty} ${i.unit || ''}`, `Rs.${parseFloat(i.rate || 0).toFixed(2)}`, `Rs.${((i.qty || 0) * (i.rate || 0)).toFixed(2)}`]);
         doc.autoTable({
           head: [['Item', 'Qty', 'Rate', 'Total']],
-          body: itemRows,
+          body: itemRows.length > 0 ? itemRows : [['No items', '', '', '']],
           startY: 56,
           margin: { left: 14, right: 14 },
           styles: { fontSize: 8, cellPadding: 1.5 },
@@ -3432,7 +3482,12 @@
         doc.text(`Pending Due: Rs.${(order.pendingAmount || 0).toFixed(2)}`, rightX, y, { align: 'right' });
         doc.setTextColor(0, 0, 0);
 
-        doc.save(`Invoice_${order.orderNo}.pdf`);
+          doc.save(`Invoice_${order.orderNo}.pdf`);
+          this.toast('Invoice PDF downloaded');
+        } catch (err) {
+          console.error('generateInvoicePDF error:', err);
+          this.toast('Could not generate PDF: ' + (err && err.message ? err.message : 'Unknown error'), 'error');
+        }
       }
 
       openPurchaseModal() {

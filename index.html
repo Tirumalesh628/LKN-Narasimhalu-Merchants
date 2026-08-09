@@ -113,6 +113,7 @@
     .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
     .btn-outline:hover { background: var(--border-color); }
     .btn-sm { padding: 0.4rem 0.7rem; font-size: 0.75rem; }
+    .txn-tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 
     .card { background: var(--card-bg); border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: var(--shadow); padding: 1rem; margin-bottom: 1.25rem; }
     .card-title { font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
@@ -233,6 +234,65 @@
     .sync-status { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.5rem; border-radius: 20px; background: var(--accent-light); color: var(--primary); white-space: nowrap; }
     .sync-status.syncing { color: var(--warning); }
 
+    /* HELP MENU POPOVER (Take a Tour / Download User Manual) */
+    .help-menu-popover {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      background: var(--card-bg, #fff);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+      min-width: 220px;
+      padding: 0.4rem;
+      z-index: 5500;
+    }
+    .help-menu-popover.open { display: flex; flex-direction: column; gap: 0.2rem; }
+    .help-menu-popover button {
+      display: flex; align-items: center; gap: 0.55rem;
+      width: 100%; text-align: left; background: none; border: none;
+      padding: 0.55rem 0.65rem; border-radius: 7px; cursor: pointer;
+      font-size: 0.82rem; font-weight: 600; color: var(--text-color, #222);
+      font-family: inherit;
+    }
+    .help-menu-popover button:hover { background: var(--accent-light); color: var(--primary); }
+    .help-menu-popover button i { width: 16px; color: var(--primary); }
+
+    /* GUIDED TOUR */
+    .tour-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      z-index: 9997; cursor: default;
+    }
+    .tour-highlighted {
+      position: relative !important; z-index: 9998 !important;
+      box-shadow: 0 0 0 4px var(--primary), 0 8px 24px rgba(0,0,0,0.35) !important;
+      border-radius: 10px !important;
+      transition: box-shadow 0.2s ease;
+    }
+    .tour-tooltip {
+      position: fixed; z-index: 9999; background: #fff; color: #222;
+      border-radius: 12px; padding: 1rem 1.1rem; width: 280px; max-width: calc(100vw - 2rem);
+      box-shadow: 0 14px 36px rgba(0,0,0,0.3); font-size: 0.85rem; line-height: 1.4;
+    }
+    .tour-tooltip h4 { margin: 0 0 0.4rem; font-size: 1rem; color: var(--primary); display:flex; align-items:center; gap:0.4rem; }
+    .tour-tooltip p { margin: 0; color: #444; }
+    .tour-progress { font-size: 0.7rem; color: #888; font-weight: 700; letter-spacing: 0.02em; margin-bottom: 0.35rem; }
+    .tour-progress-bar { height: 4px; background: #eee; border-radius: 4px; overflow: hidden; margin-bottom: 0.6rem; }
+    .tour-progress-fill { height: 100%; background: var(--primary); transition: width 0.25s ease; }
+    .tour-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 0.9rem; gap: 0.5rem; }
+    .tour-actions .tour-skip { background: none; border: none; color: #888; font-size: 0.78rem; font-weight: 600; cursor: pointer; padding: 0.3rem; font-family: inherit; }
+    .tour-actions .tour-btn-group { display: flex; gap: 0.4rem; }
+    .tour-actions button.tour-nav-btn {
+      border: none; border-radius: 7px; padding: 0.4rem 0.8rem; font-size: 0.78rem; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+    }
+    .tour-actions .tour-prev { background: #f0f0f0; color: #333; }
+    .tour-actions .tour-next { background: var(--primary); color: #fff; }
+    @media (max-width: 640px) {
+      .tour-tooltip { left: 1rem !important; right: 1rem !important; width: auto !important; bottom: 1rem !important; top: auto !important; }
+    }
+
     /* PRINT INVOICE STYLES */
     @media print {
       body * { visibility: hidden; }
@@ -307,6 +367,13 @@
         <div class="header-actions">
           <button class="btn btn-outline btn-sm" id="btnThemeToggle" title="Toggle Theme"><i class="fa-solid fa-moon"></i></button>
           <div style="font-size:0.85rem; font-weight:600; display:none; @media(min-width:600px){display:block;}" id="userDisplay">Admin</div>
+          <div style="position:relative;">
+            <button class="btn btn-outline btn-sm" id="btnHelpMenu" title="Help & User Manual"><i class="fa-solid fa-circle-question"></i></button>
+            <div id="helpMenuPopover" class="help-menu-popover">
+              <button type="button" id="btnStartTour"><i class="fa-solid fa-route"></i> Take a Guided Tour</button>
+              <button type="button" id="btnDownloadManual"><i class="fa-solid fa-file-arrow-down"></i> Download User Manual</button>
+            </div>
+          </div>
           <button class="btn btn-danger btn-sm" id="btnLogout" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></button>
         </div>
       </header>
@@ -316,18 +383,42 @@
         
         <!-- MODULE 1: DASHBOARD -->
         <section id="modDashboard" class="module-view" style="display:none;">
-          <div class="grid grid-4" style="margin-bottom:1.25rem;">
-            <div class="card stat-card"><div class="stat-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div><div class="stat-data"><div class="val" id="dashSales">₹0</div><div class="lbl">Today's Sales</div></div></div>
-            <div class="card stat-card"><div class="stat-icon"><i class="fa-solid fa-bag-shopping"></i></div><div class="stat-data"><div class="val" id="dashOrders">0</div><div class="lbl">Today's Orders</div></div></div>
-            <div class="card stat-card"><div class="stat-icon"><i class="fa-solid fa-vault"></i></div><div class="stat-data"><div class="val" id="dashCollection">₹0</div><div class="lbl">Total Collections</div></div></div>
-            <div class="card stat-card"><div class="stat-icon" style="color:var(--danger);"><i class="fa-solid fa-user-minus"></i></div><div class="stat-data"><div class="val" id="dashPendingCust">₹0</div><div class="lbl">Customer Due</div></div></div>
-            <div class="card stat-card"><div class="stat-icon" style="color:var(--warning);"><i class="fa-solid fa-truck-arrow-right"></i></div><div class="stat-data"><div class="val" id="dashPendingSupp">₹0</div><div class="lbl">Supplier Payable</div></div></div>
-            <div class="card stat-card"><div class="stat-icon"><i class="fa-solid fa-warehouse"></i></div><div class="stat-data"><div class="val" id="dashStockVal">₹0</div><div class="lbl">Stock Value</div></div></div>
-            <div class="card stat-card"><div class="stat-icon" style="color:var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i></div><div class="stat-data"><div class="val" id="dashLowStock">0</div><div class="lbl">Low Stock Items</div></div></div>
+
+          <!-- TODAY'S SUMMARY -->
+          <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.6rem;">
+            <div style="width:4px; height:22px; background:var(--primary); border-radius:3px;"></div>
+            <h3 style="font-size:1rem; font-weight:800; color:var(--primary); margin:0;"><i class="fa-solid fa-calendar-day" style="margin-right:0.4rem;"></i>Today's Summary</h3>
+            <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;" id="dashTodayDateLabel"></span>
           </div>
-          <div class="grid grid-2">
-            <div class="card"><div class="card-title">Sales Analytics</div><canvas id="chartSales" height="180"></canvas></div>
-            <div class="card"><div class="card-title">Payment Methods Share</div><canvas id="chartPayments" height="180"></canvas></div>
+          <div class="grid grid-4" style="margin-bottom:1.5rem;">
+            <div class="card stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);"><i class="fa-solid fa-indian-rupee-sign" style="color:#2E7D32;"></i></div><div class="stat-data"><div class="val" id="dashSales">&#8377;0</div><div class="lbl">Today's Sale</div></div></div>
+            <div class="card stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#E3F2FD,#BBDEFB);"><i class="fa-solid fa-hand-holding-dollar" style="color:#0288D1;"></i></div><div class="stat-data"><div class="val" id="dashTodayCollection">&#8377;0</div><div class="lbl">Today's Collection</div></div></div>
+            <div class="card stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#FFF3E0,#FFE0B2);"><i class="fa-solid fa-clock" style="color:#FB8C00;"></i></div><div class="stat-data"><div class="val" id="dashTodayPendingColl">&#8377;0</div><div class="lbl">Today's Pending Coll.</div></div></div>
+            <div class="card stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#E8EAF6,#C5CAE9);"><i class="fa-solid fa-truck-ramp-box" style="color:#3949AB;"></i></div><div class="stat-data"><div class="val" id="dashTodayPurchase">&#8377;0</div><div class="lbl">Today's Purchase</div></div></div>
+            <div class="card stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#FFEBEE,#FFCDD2);"><i class="fa-solid fa-truck-arrow-right" style="color:#E53935;"></i></div><div class="stat-data"><div class="val" id="dashTodaySuppPending">&#8377;0</div><div class="lbl">Today's Supp. Pending</div></div></div>
+            <div class="card stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#F3E5F5,#E1BEE7);"><i class="fa-solid fa-warehouse" style="color:#8E24AA;"></i></div><div class="stat-data"><div class="val" id="dashStockVal">&#8377;0</div><div class="lbl">Stock Value</div></div></div>
+          </div>
+
+          <!-- OVERALL SUMMARY -->
+          <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.6rem; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <div style="width:4px; height:22px; background:var(--warning); border-radius:3px;"></div>
+              <h3 style="font-size:1rem; font-weight:800; color:var(--warning); margin:0;"><i class="fa-solid fa-chart-bar" style="margin-right:0.4rem;"></i>Overall Summary</h3>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; margin-left:auto;">
+              <span style="font-size:0.78rem; color:var(--text-muted);">From:</span>
+              <input type="date" id="dashFromDate" class="form-control" style="width:auto; padding:0.3rem 0.5rem; font-size:0.8rem;">
+              <span style="font-size:0.78rem; color:var(--text-muted);">To:</span>
+              <input type="date" id="dashToDate" class="form-control" style="width:auto; padding:0.3rem 0.5rem; font-size:0.8rem;">
+              <button class="btn btn-outline btn-sm" id="btnDashReset">Last 30 Days</button>
+            </div>
+          </div>
+          <div class="grid grid-4" style="margin-bottom:1rem;">
+            <div class="card stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);"><i class="fa-solid fa-indian-rupee-sign" style="color:#2E7D32;"></i></div><div class="stat-data"><div class="val" id="dashOvSale">&#8377;0</div><div class="lbl">Total Sale</div></div></div>
+            <div class="card stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#E3F2FD,#BBDEFB);"><i class="fa-solid fa-hand-holding-dollar" style="color:#0288D1;"></i></div><div class="stat-data"><div class="val" id="dashOvCollection">&#8377;0</div><div class="lbl">Total Collection</div></div></div>
+            <div class="card stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#FFF3E0,#FFE0B2);"><i class="fa-solid fa-clock" style="color:#FB8C00;"></i></div><div class="stat-data"><div class="val" id="dashOvPendingColl">&#8377;0</div><div class="lbl">Pending Collection</div></div></div>
+            <div class="card stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#E8EAF6,#C5CAE9);"><i class="fa-solid fa-truck-ramp-box" style="color:#3949AB;"></i></div><div class="stat-data"><div class="val" id="dashOvPurchase">&#8377;0</div><div class="lbl">Total Purchase</div></div></div>
+            <div class="card stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#FFEBEE,#FFCDD2);"><i class="fa-solid fa-truck-arrow-right" style="color:#E53935;"></i></div><div class="stat-data"><div class="val" id="dashOvSuppPending">&#8377;0</div><div class="lbl">Supplier Pending</div></div></div>
           </div>
         </section>
 
@@ -457,12 +548,20 @@
           <div class="card">
             <div class="card-title">
               Suppliers Directory
-              <button class="btn btn-primary btn-sm" id="btnOpenAddSupplier"><i class="fa-solid fa-plus"></i> Add Supplier</button>
+              <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                <span style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">From:</span>
+                <input type="date" id="suppFromDate" class="form-control" style="width:auto; padding:0.35rem 0.5rem; font-size:0.8rem;">
+                <span style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">To:</span>
+                <input type="date" id="suppToDate" class="form-control" style="width:auto; padding:0.35rem 0.5rem; font-size:0.8rem;">
+                <button class="btn btn-outline btn-sm" id="btnResetSuppDate">All Time</button>
+                <button class="btn btn-secondary btn-sm" id="btnDownloadSuppPDF"><i class="fa-solid fa-file-pdf"></i> Download</button>
+                <button class="btn btn-primary btn-sm" id="btnOpenAddSupplier"><i class="fa-solid fa-plus"></i> Add Supplier</button>
+              </div>
             </div>
             <div class="table-responsive">
               <table>
                 <thead>
-                  <tr><th>Name</th><th>Phone</th><th>Address</th><th>Total Purchases</th><th>Paid</th><th>Pending Balance</th><th>Actions</th></tr>
+                  <tr><th>Name</th><th>Phone</th><th>Address</th><th>Total Purchases</th><th>Paid</th><th>Pending Balance</th><th>Transactions</th><th>Actions</th></tr>
                 </thead>
                 <tbody id="suppliersTbody"></tbody>
               </table>
@@ -553,6 +652,17 @@
           <div class="card">
             <div class="card-title" style="gap: 0.75rem;">
               <span>Transaction Audit Log</span>
+              <!-- TABS: filter the log by transaction category. "Suppliers" shows Purchase +
+                   Supplier Payment rows, and lets you log a new supplier transaction directly,
+                   which is saved the same way as everywhere else (so it backs up to Google
+                   Sheets and shows on the Suppliers page's per-supplier Txn log too). -->
+              <div class="txn-tabs" style="display:flex; gap:0.4rem; flex-wrap:wrap; width:100%;">
+                <button type="button" class="btn btn-outline btn-sm txn-tab-btn active" data-txntab="all">All</button>
+                <button type="button" class="btn btn-outline btn-sm txn-tab-btn" data-txntab="supplier">Suppliers</button>
+                <button class="btn btn-primary btn-sm" id="btnAddSupplierTxn" style="display:none; margin-left:auto;">
+                  <i class="fa-solid fa-plus"></i> Add Supplier Transaction
+                </button>
+              </div>
               <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; width: 100%;">
                 <input type="text" id="txnSearchFilter" class="form-control" placeholder="Search customer / user / reference..." style="flex: 1; min-width: 150px; padding: 0.35rem 0.5rem; font-size: 0.8rem;" autocomplete="off">
                 <span style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">From:</span>
@@ -620,6 +730,12 @@
               <button class="btn btn-outline btn-sm" id="btnTriggerImport"><i class="fa-solid fa-upload"></i> Restore Backup</button>
               <input type="file" id="fileImportBackup" accept=".xlsx, .xls" style="display:none;">
             </div>
+          </div>
+
+          <div class="card" style="border:2px solid var(--danger);">
+            <div class="card-title" style="color:var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> Danger Zone</div>
+            <p style="margin-bottom:1rem; color:var(--text-muted); font-size:0.85rem;">Permanently delete ALL data from this device and Google Sheets. This action cannot be undone.</p>
+            <button class="btn btn-danger btn-sm" id="btnClearAllData"><i class="fa-solid fa-trash-can"></i> Clear All Data</button>
           </div>
         </section>
 
@@ -694,7 +810,11 @@
           <div class="form-group"><label>Payment Mode</label><select id="posPayMode" class="form-control"><option value="Cash">Cash</option><option value="UPI">UPI</option><option value="Credit">Credit</option></select></div>
           <div class="form-group"><label>Discount (₹)</label><input type="number" step="0.01" id="posDiscount" class="form-control" value="0"></div>
         </div>
-        <div class="form-group"><label>Amount Paid (₹)</label><input type="number" step="0.01" id="posPaid" class="form-control" required></div>
+        <div class="form-group">
+          <label>Amount Paid (₹)</label>
+          <input type="number" step="0.01" id="posPaid" class="form-control" required>
+          <div id="posPaidHint" style="display:none; color:var(--danger); font-size:0.78rem; margin-top:0.25rem;"><i class="fa-solid fa-triangle-exclamation"></i> Amount cannot exceed the order total.</div>
+        </div>
         <div id="checkoutMiscInfo" style="display:none; margin-bottom:0.5rem;"></div>
         <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Confirm & Generate Bill</button>
       </form>
@@ -799,6 +919,21 @@
     </div>
   </div>
 
+  <!-- SUPPLIER TRANSACTIONS LOG MODAL -->
+  <div class="modal-overlay" id="modalSupplierTxn">
+    <div class="modal" style="max-width:800px;">
+      <div class="modal-header">
+        <div class="modal-title" id="suppTxnModalTitle">Supplier Transactions</div>
+        <i class="fa-solid fa-xmark modal-close" style="cursor:pointer;"></i>
+      </div>
+      <div id="suppTxnList" style="max-height:420px; overflow-y:auto; margin-bottom:1rem;"></div>
+      <div style="display:flex; justify-content:flex-end; gap:0.5rem; flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" id="btnSuppTxnPDF"><i class="fa-solid fa-file-pdf"></i> Download PDF</button>
+        <button class="btn btn-outline btn-sm modal-close">Close</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="modalCustomer">
     <div class="modal">
       <div class="modal-header"><div class="modal-title">Add Customer</div><i class="fa-solid fa-xmark modal-close" style="cursor:pointer;"></i></div>
@@ -832,6 +967,37 @@
         <div class="form-group"><label>Payment Amount (₹) *</label><input type="number" step="0.01" id="payClearAmt" class="form-control" required min="0.01"></div>
         <div class="form-group"><label>Payment Mode</label><select id="payClearMode" class="form-control"><option value="Cash">Cash</option><option value="UPI">UPI</option></select></div>
         <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Submit Payment</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- SUPPLIER TRANSACTION ENTRY MODAL (used by the "Suppliers" tab on the Transactions page) -->
+  <div class="modal-overlay" id="modalAddSupplierTxn">
+    <div class="modal">
+      <div class="modal-header"><div class="modal-title">Add Supplier Transaction</div><i class="fa-solid fa-xmark modal-close" style="cursor:pointer;"></i></div>
+      <form id="formAddSupplierTxn">
+        <div class="form-group">
+          <label>Supplier *</label>
+          <select id="supTxnSuppId" class="form-control" required></select>
+        </div>
+        <div class="form-group">
+          <label>Current Pending Balance: ₹<span id="supTxnCurrentPending">0.00</span></label>
+        </div>
+        <div class="form-group">
+          <label>Payment Amount (₹) *</label>
+          <input type="number" step="0.01" id="supTxnAmt" class="form-control" required min="0.01">
+        </div>
+        <div class="form-group">
+          <label>Payment Mode</label>
+          <select id="supTxnMode" class="form-control"><option value="Cash">Cash</option><option value="UPI">UPI</option><option value="Bank Transfer">Bank Transfer</option></select>
+        </div>
+        <div class="form-group">
+          <label>Remarks (optional)</label>
+          <input type="text" id="supTxnRemarks" class="form-control" placeholder="e.g. Part payment for July stock">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">
+          <i class="fa-solid fa-floppy-disk"></i> Save &amp; Backup Transaction
+        </button>
       </form>
     </div>
   </div>
@@ -987,6 +1153,30 @@
     </div>
   </div>
 
+  <!-- CUSTOMER PAY MODAL -->
+  <div class="modal-overlay" id="modalCustomerPay">
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <div class="modal-title" id="custPayModalTitle"><i class="fa-solid fa-hand-holding-dollar"></i> Pay for Customer</div>
+        <i class="fa-solid fa-xmark modal-close" style="cursor:pointer;"></i>
+      </div>
+      <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.75rem;" id="custPayInfo"></div>
+      <div class="form-group">
+        <label>Total Pending Balance: <strong class="text-red">&#8377;<span id="custPayTotalPending">0.00</span></strong></label>
+      </div>
+      <div class="form-group">
+        <label>Payment Amount (₹) *</label>
+        <input type="number" step="0.01" id="custPayAmt" class="form-control" required min="0.01" placeholder="Enter amount to pay">
+      </div>
+      <div class="form-group">
+        <label>Payment Mode</label>
+        <select id="custPayMode" class="form-control"><option value="Cash">Cash</option><option value="UPI">UPI</option><option value="Bank Transfer">Bank Transfer</option></select>
+      </div>
+      <div style="background:var(--accent-light); border-radius:6px; padding:0.6rem 0.75rem; font-size:0.8rem; color:var(--primary); margin-bottom:0.75rem;" id="custPayOrdersPreview"></div>
+      <button class="btn btn-primary" id="btnConfirmCustomerPay" style="width:100%; justify-content:center;"><i class="fa-solid fa-check-circle"></i> Confirm Payment</button>
+    </div>
+  </div>
+
   <!-- APPLICATION LOGIC ENGINE -->
   <script>
     'use strict';
@@ -1053,11 +1243,33 @@
           StorageService.set(k, data[k], true);
         });
       }
+
+      // Writes several keys at once and triggers exactly ONE background sync
+      // afterwards, instead of one sync per key. This matters for actions like
+      // "clear supplier due" that touch both `purchases` and `transactions` —
+      // calling StorageService.set() twice in a row used to start a sync after
+      // the first write, which could still be in flight when the second write
+      // arrived, leaving that second update un-pushed until the next sync
+      // cycle. Using setMany guarantees both changes are on disk and go out
+      // together in a single push.
+      static setMany(obj) {
+        Object.keys(obj).forEach(k => {
+          localStorage.setItem(`LKM_${k}`, JSON.stringify(obj[k]));
+        });
+        GoogleSheetSync.triggerBackgroundSync();
+      }
     }
 
     /* --- GOOGLE SHEETS ASYNC BACKGROUND SYNC MODULE --- */
     class GoogleSheetSync {
       static isSyncing = false;
+      // If a set() call fires while a push is already in flight, we used to
+      // just drop it (returning early). That silently lost data — e.g. the
+      // "purchases" write from clearing a supplier due, followed right away
+      // by the "transactions" write for that same payment, would only push
+      // the first one. Instead we now remember that newer local data showed
+      // up and push again as soon as the current push finishes.
+      static pendingResync = false;
 
       static updateStatusUI(status, text) {
         const tag = document.getElementById('syncStatusTag');
@@ -1070,15 +1282,28 @@
         } else if (status === 'success') {
           tag.className = 'sync-status';
           txt.innerText = `Synced`;
+        } else if (status === 'error') {
+          tag.className = 'sync-status syncing';
+          txt.innerText = 'Sync failed - retrying';
         } else {
           tag.className = 'sync-status syncing';
           txt.innerText = 'Offline';
         }
       }
 
+      // Returns true only if the push actually reached the server AND the
+      // server confirmed it saved the data (status: 'ok'). Callers must not
+      // pull-and-overwrite local data unless this resolves true, otherwise a
+      // failed/incomplete push followed by a pull will wipe out local
+      // changes (e.g. a payment just recorded) with the old server copy.
       static async triggerBackgroundSync() {
         const url = StorageService.get('sheetApiUrl');
-        if (!url || GoogleSheetSync.isSyncing) return;
+        if (!url) return false;
+
+        if (GoogleSheetSync.isSyncing) {
+          GoogleSheetSync.pendingResync = true;
+          return false;
+        }
 
         GoogleSheetSync.isSyncing = true;
         GoogleSheetSync.updateStatusUI('syncing');
@@ -1096,14 +1321,27 @@
           GoogleSheetSync.updateStatusUI(ok ? 'success' : 'error');
         } catch (err) {
           console.warn('Background sync failed:', err);
-          GoogleSheetSync.updateStatusUI('success'); 
-          ok = true;
+          GoogleSheetSync.updateStatusUI('error');
+          ok = false;
         } finally {
           GoogleSheetSync.isSyncing = false;
         }
+
+        if (GoogleSheetSync.pendingResync) {
+          GoogleSheetSync.pendingResync = false;
+          // Newer local changes arrived while this push was in flight
+          // (e.g. a second StorageService.set() right after this one) —
+          // push again so they aren't left un-synced.
+          GoogleSheetSync.triggerBackgroundSync();
+        }
+
         return ok;
       }
 
+      // Pulls the server's merged copy down into localStorage. Only call
+      // this after a CONFIRMED successful push (see triggerBackgroundSync),
+      // otherwise you risk overwriting newer local data with a stale server
+      // copy that doesn't have your latest changes yet.
       static async pullFromSheets() {
         const url = StorageService.get('sheetApiUrl');
         if (!url) return false;
@@ -1112,14 +1350,15 @@
         try {
           const res = await fetch(url);
           const data = await res.json();
-          if (data && typeof data === 'object') {
+          if (data && typeof data === 'object' && data.status !== 'error') {
             StorageService.restoreFullBackup(data);
             GoogleSheetSync.updateStatusUI('success');
             return true;
           }
+          GoogleSheetSync.updateStatusUI('error');
         } catch (err) {
           console.warn('Pull from sheets failed:', err);
-          GoogleSheetSync.updateStatusUI('success');
+          GoogleSheetSync.updateStatusUI('error');
         }
         return false;
       }
@@ -1135,9 +1374,13 @@
         this.editingOrderNo = null;
         this.currentCustomerOrdName = null;
         this.currentCustomerTxnLogName = null;
+        this.currentSupplierTxnId   = null;
+        this.currentSupplierTxnName = null;
+        this.txnTypeTab = 'all';
         this.initDOM();
         this.setDefaultDateFilters();
         this.bindEvents();
+        this.initDashboardFilters();
         this.checkAuth();
         this.initAutoSync();
         this.setupResponsiveLayout();
@@ -1196,6 +1439,225 @@
         }
       }
 
+      // ───── GUIDED TOUR (first-time walkthrough, skippable, replayable) ─────
+      startTour() {
+        this.tourSteps = [
+          { selector: '#headerTitle', title: '👋 Welcome!', text: "Here's how the app is meant to be used, step by step — in the order you'd normally do it. Use Back/Next to move around, or skip anytime." },
+          { selector: '.nav-link[data-target="modSuppliers"]', navigate: true, title: 'Step 1 — Add Suppliers', text: 'Start here: add the suppliers you buy fruit/stock from (name, phone, address). You\'ll link stock purchases to them next.' },
+          { selector: '.nav-link[data-target="modInventory"]', navigate: true, title: 'Step 2 — Add Items to Inventory', text: 'Add each fruit/product with its cost price, selling price and opening stock. Pick a supplier here too and it auto-creates a purchase record for you.' },
+          { selector: '.nav-link[data-target="modPurchases"]', navigate: true, title: 'Step 3 — Purchases', text: 'Every time you restock, record it here (or via Inventory) — quantity, rate and amount paid. Anything unpaid shows as "Pending" against that supplier.' },
+          { selector: '.nav-link[data-target="modCustomers"]', navigate: true, title: 'Step 4 — Add Customers', text: 'Add regular customers so you can bill them and track their dues. You can also add a new customer on the fly while billing.' },
+          { selector: '.nav-link[data-target="modPOS"]', navigate: true, title: 'Step 5 — Order Page (Billing)', text: 'This is where daily business happens: add items to the cart, pick a customer, and generate the bill.' },
+          { selector: '.nav-link[data-target="modAllOrders"]', navigate: true, title: 'Step 6 — All Orders', text: 'Every bill you\'ve generated lands here. Edit, reprint or cancel any order.' },
+          { selector: '.nav-link[data-target="modPending"]', navigate: true, title: 'Step 7 — Pending Payments', text: 'Check this regularly: it shows what customers still owe you, and what you still owe suppliers, in one place.' },
+          { selector: '.nav-link[data-target="modExpenses"]', navigate: true, title: 'Step 8 — Expenses', text: 'Log day-to-day costs like rent, transport or wages, so your numbers stay accurate.' },
+          { selector: '.nav-link[data-target="modTransactions"]', navigate: true, title: 'Step 9 — Transactions', text: 'A complete ledger of every sale, purchase and payment — useful when you need to double-check something.' },
+          { selector: '.nav-link[data-target="modDashboard"]', navigate: true, title: 'Step 10 — Dashboard', text: "Check in here for a bird's-eye view: today's sales, collections, purchases and stock value." },
+          { selector: '.nav-link[data-target="modReports"]', navigate: true, title: 'Step 11 — Reports', text: 'Generate and download summarized sales reports whenever you need them.' },
+          { selector: '.nav-link[data-target="modBackup"]', navigate: true, title: 'Step 12 — Backup & Sync', text: "Back up your data to Google Sheets from time to time — so you never lose your records." },
+          { selector: '#btnHelpMenu', title: 'Come back anytime', text: 'This tour never runs on its own — replay it or download the full user manual PDF from this icon whenever you need it.' },
+          { selector: '#btnLogout', title: "You're all set! 🎉", text: 'That\'s the full flow, start to finish. Tap here whenever you want to log out. Happy selling!' }
+        ];
+        this.tourIndex = 0;
+        if (window.innerWidth <= 1024 && this.dom.sidebarNav) this.dom.sidebarNav.classList.add('mobile-open');
+        this.tourOverlay = document.createElement('div');
+        this.tourOverlay.className = 'tour-overlay';
+        document.body.appendChild(this.tourOverlay);
+        this.tourTooltip = document.createElement('div');
+        this.tourTooltip.className = 'tour-tooltip';
+        document.body.appendChild(this.tourTooltip);
+        this.renderTourStep();
+      }
+
+      renderTourStep() {
+        const prevTarget = document.querySelector('.tour-highlighted');
+        if (prevTarget) prevTarget.classList.remove('tour-highlighted');
+
+        const step = this.tourSteps[this.tourIndex];
+        if (!step) return this.endTour();
+
+        // Switch the app to the relevant module so the background genuinely reflects the step.
+        if (step.navigate) {
+          const link = document.querySelector(step.selector);
+          if (link) link.click();
+          // Clicking a sidebar link auto-closes the mobile sidebar — reopen it so the tour
+          // can keep highlighting sidebar items on small screens.
+          if (window.innerWidth <= 1024 && this.dom.sidebarNav) this.dom.sidebarNav.classList.add('mobile-open');
+        }
+
+        const target = document.querySelector(step.selector);
+        if (target) {
+          target.scrollIntoView({ block: 'center', inline: 'center', behavior: 'auto' });
+          target.classList.add('tour-highlighted');
+        }
+
+        const total = this.tourSteps.length;
+        const pct = Math.round(((this.tourIndex + 1) / total) * 100);
+        const isFirst = this.tourIndex === 0;
+        const isLast = this.tourIndex === total - 1;
+
+        this.tourTooltip.innerHTML = `
+          <div class="tour-progress">STEP ${this.tourIndex + 1} OF ${total}</div>
+          <div class="tour-progress-bar"><div class="tour-progress-fill" style="width:${pct}%;"></div></div>
+          <h4>${step.title}</h4>
+          <p>${step.text}</p>
+          <div class="tour-actions">
+            <button type="button" class="tour-skip" id="tourSkipBtn">Skip tour</button>
+            <div class="tour-btn-group">
+              ${isFirst ? '' : '<button type="button" class="tour-nav-btn tour-prev" id="tourPrevBtn">Back</button>'}
+              <button type="button" class="tour-nav-btn tour-next" id="tourNextBtn">${isLast ? 'Finish' : 'Next'}</button>
+            </div>
+          </div>
+        `;
+
+        // Position the tooltip near the highlighted element (falls back to center on mobile via CSS).
+        if (target && window.innerWidth > 640) {
+          const rect = target.getBoundingClientRect();
+          const tw = 280, margin = 14;
+          let top = rect.bottom + margin;
+          let left = rect.left;
+          if (top + 220 > window.innerHeight) top = Math.max(margin, rect.top - 220 - margin);
+          if (left + tw + margin > window.innerWidth) left = window.innerWidth - tw - margin;
+          if (left < margin) left = margin;
+          this.tourTooltip.style.top = `${top}px`;
+          this.tourTooltip.style.left = `${left}px`;
+          this.tourTooltip.style.bottom = 'auto';
+          this.tourTooltip.style.right = 'auto';
+        } else {
+          this.tourTooltip.style.top = '';
+          this.tourTooltip.style.left = '';
+        }
+
+        document.getElementById('tourSkipBtn').onclick = () => this.endTour();
+        document.getElementById('tourNextBtn').onclick = () => {
+          this.tourIndex++;
+          this.renderTourStep();
+        };
+        const prevBtn = document.getElementById('tourPrevBtn');
+        if (prevBtn) prevBtn.onclick = () => {
+          this.tourIndex--;
+          this.renderTourStep();
+        };
+      }
+
+      endTour() {
+        const highlighted = document.querySelector('.tour-highlighted');
+        if (highlighted) highlighted.classList.remove('tour-highlighted');
+        if (this.tourOverlay) { this.tourOverlay.remove(); this.tourOverlay = null; }
+        if (this.tourTooltip) { this.tourTooltip.remove(); this.tourTooltip = null; }
+        if (window.innerWidth <= 1024 && this.dom.sidebarNav) this.dom.sidebarNav.classList.remove('mobile-open');
+        // Return the user to the Order Page after a tour run.
+        const posLink = document.querySelector('.nav-link[data-target="modPOS"]');
+        if (posLink) posLink.click();
+      }
+
+      // ───── DOWNLOADABLE USER MANUAL (PDF) ─────
+      downloadUserManual() {
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+          this.toast('PDF library not loaded — check your connection', 'error');
+          return;
+        }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const marginX = 14;
+        let y = 0;
+
+        const drawHeader = (subtitle) => {
+          doc.setFillColor(46, 125, 50);
+          doc.rect(0, 0, pageW, 22, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(15);
+          doc.setFont(undefined, 'bold');
+          doc.text('LKM Fruits — User Manual', marginX, 13);
+          doc.setFontSize(9);
+          doc.setFont(undefined, 'normal');
+          doc.text(subtitle || 'A quick guide to every screen in the app', marginX, 19);
+          doc.setTextColor(0, 0, 0);
+          y = 32;
+        };
+
+        const ensureSpace = (needed) => {
+          if (y + needed > pageH - 16) { doc.addPage(); drawHeader(); }
+        };
+
+        const section = (title, points) => {
+          ensureSpace(14);
+          doc.setFontSize(12);
+          doc.setFont(undefined, 'bold');
+          doc.setTextColor(46, 125, 50);
+          doc.text(title, marginX, y);
+          y += 6;
+          doc.setTextColor(30, 30, 30);
+          doc.setFontSize(9.5);
+          doc.setFont(undefined, 'normal');
+          points.forEach(pt => {
+            const lines = doc.splitTextToSize(`•  ${pt}`, pageW - marginX * 2 - 4);
+            ensureSpace(lines.length * 4.6 + 2);
+            doc.text(lines, marginX + 2, y);
+            y += lines.length * 4.6 + 2;
+          });
+          y += 3;
+        };
+
+        drawHeader('Recommended workflow, step by step');
+
+        section('Step 1 — Suppliers', [
+          'Add the suppliers you buy fruit/stock from: name, phone and address.',
+          'You\'ll link stock purchases to these suppliers in the next step.'
+        ]);
+        section('Step 2 — Inventory', [
+          'Add each fruit/product with cost price, selling price and opening stock.',
+          'Optionally pick a supplier while adding stock — this auto-creates a purchase record for you.',
+          'Stock quantities then update automatically as sales and purchases happen.'
+        ]);
+        section('Step 3 — Purchases', [
+          'Record every restock here: item, quantity, rate and amount paid.',
+          'Any unpaid balance is tracked as "Pending" against that supplier automatically.'
+        ]);
+        section('Step 4 — Customers', [
+          'Add regular customers with phone numbers and addresses.',
+          'You can also add a new customer on the fly while billing on the Order Page.'
+        ]);
+        section('Step 5 — Order Page (Billing)', [
+          'Build a cart by selecting items and quantities, choose a walk-in or existing customer, then generate the bill.',
+          'You can search and load an earlier order by its Order No to reprint or continue it.'
+        ]);
+        section('Step 6 — All Orders', [
+          'Browse every order placed. Filter by date range, edit an order, reprint the invoice, or cancel it.'
+        ]);
+        section('Step 7 — Pending Payments', [
+          'A single screen listing everything customers owe you, and everything you owe suppliers.',
+          'Download a combined PDF of all pending payments for record-keeping.'
+        ]);
+        section('Step 8 — Expenses', [
+          'Log day-to-day expenses like rent, transport or wages, categorized for easy tracking.'
+        ]);
+        section('Step 9 — Transactions', [
+          'A running ledger of every payment, sale and purchase — useful for audits and reconciliation.'
+        ]);
+        section('Step 10 — Dashboard', [
+          "Today's sales, collections, purchases and stock value at a glance.",
+          'Use the date range filter to see overall stats for any period.'
+        ]);
+        section('Step 11 — Reports', [
+          'Generate and download summarized sales reports for a chosen period.'
+        ]);
+        section('Step 12 — Backup & Sync', [
+          'Back up all your data to Google Sheets, and restore it later if you switch devices or clear your browser.'
+        ]);
+        section('Reminder — Suppliers screen', [
+          'Come back to the Suppliers screen anytime to see Total Purchases, Paid and Pending Balance per supplier, clear dues with "Pay", and view a full running-balance statement with "Txn".'
+        ]);
+        section('Need a refresher?', [
+          'Tap the help icon (?) in the top bar any time to replay the guided tour or download this manual again.'
+        ]);
+
+        doc.save(`LKM_User_Manual_${new Date().toISOString().split('T')[0]}.pdf`);
+        this.toast('User manual downloaded');
+      }
+
       async syncWithDrive(showToast = false) {
         const url = StorageService.get('sheetApiUrl');
         if (!url) return;
@@ -1203,8 +1665,14 @@
         this.showSpinner(true);
         if (showToast) this.toast('Syncing with database...');
 
-        await GoogleSheetSync.triggerBackgroundSync();
-        await GoogleSheetSync.pullFromSheets();
+        const pushed = await GoogleSheetSync.triggerBackgroundSync();
+        if (pushed) {
+          // Safe to pull now — the server has our latest local changes
+          // merged in, so pulling back down won't lose anything.
+          await GoogleSheetSync.pullFromSheets();
+        } else if (showToast) {
+          this.toast('Could not reach backup sheet. Your data is safe on this device and will sync automatically once reachable.', 'error');
+        }
 
         this.refreshAll();
         this.showSpinner(false);
@@ -1256,6 +1724,31 @@
           } else {
             this.toast('Invalid credentials', 'error');
           }
+        });
+
+        // Help menu popover (Take a Tour / Download User Manual)
+        const helpBtn = document.getElementById('btnHelpMenu');
+        const helpPopover = document.getElementById('helpMenuPopover');
+        if (helpBtn && helpPopover) {
+          helpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            helpPopover.classList.toggle('open');
+          });
+          document.addEventListener('click', (e) => {
+            if (!helpPopover.contains(e.target) && e.target !== helpBtn) {
+              helpPopover.classList.remove('open');
+            }
+          });
+        }
+        const btnStartTour = document.getElementById('btnStartTour');
+        if (btnStartTour) btnStartTour.addEventListener('click', () => {
+          helpPopover.classList.remove('open');
+          this.startTour();
+        });
+        const btnDownloadManual = document.getElementById('btnDownloadManual');
+        if (btnDownloadManual) btnDownloadManual.addEventListener('click', () => {
+          helpPopover.classList.remove('open');
+          this.downloadUserManual();
         });
 
         document.getElementById('btnLoadOrder').addEventListener('click', () => {
@@ -1343,6 +1836,34 @@
             document.getElementById('txnSearchFilter').value = '';
             this.renderTransactions();
           });
+        }
+
+        // Transactions page tabs (All / Sales / Purchases / Suppliers / Expenses).
+        // "Suppliers" also reveals the "Add Supplier Transaction" button.
+        document.querySelectorAll('.txn-tab-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.txn-tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            this.txnTypeTab = btn.dataset.txntab;
+            const addSupBtn = document.getElementById('btnAddSupplierTxn');
+            if (addSupBtn) addSupBtn.style.display = (this.txnTypeTab === 'supplier') ? '' : 'none';
+            this.renderTransactions();
+          });
+        });
+
+        const btnAddSupplierTxn = document.getElementById('btnAddSupplierTxn');
+        if (btnAddSupplierTxn) {
+          btnAddSupplierTxn.addEventListener('click', () => this.openAddSupplierTxnModal());
+        }
+
+        document.getElementById('formAddSupplierTxn').addEventListener('submit', (e) => {
+          e.preventDefault();
+          this.addSupplierTransactionFromTab();
+        });
+
+        const supTxnSuppIdSelect = document.getElementById('supTxnSuppId');
+        if (supTxnSuppIdSelect) {
+          supTxnSuppIdSelect.addEventListener('change', () => this.updateSupTxnPendingLabel());
         }
 
         const customerSearchInput = document.getElementById('customerSearchInput');
@@ -1481,7 +2002,9 @@
           document.getElementById('modalMiscExpenses').classList.remove('active');
           document.getElementById('formCheckout').reset();
           const subtotal = this.cart.reduce((a, b) => a + (b.qty * b.rate), 0);
-          document.getElementById('posPaid').value = subtotal.toFixed(2);
+          const posPaidEl = document.getElementById('posPaid');
+          posPaidEl.value = subtotal.toFixed(2);
+          posPaidEl.max   = subtotal.toFixed(2);
           document.getElementById('modalCheckout').classList.add('active');
         });
 
@@ -1499,7 +2022,10 @@
           document.getElementById('formCheckout').reset();
           const subtotal  = this.cart.reduce((a, b) => a + (b.qty * b.rate), 0);
           const miscTotal = this.pendingMiscCharges.reduce((a, b) => a + b.amt, 0);
-          document.getElementById('posPaid').value = (subtotal + miscTotal).toFixed(2);
+          const grandTotal = subtotal + miscTotal;
+          const posPaidEl2 = document.getElementById('posPaid');
+          posPaidEl2.value = grandTotal.toFixed(2);
+          posPaidEl2.max   = grandTotal.toFixed(2);
           const miscInfo = document.getElementById('checkoutMiscInfo');
           if (miscInfo) {
             if (this.pendingMiscCharges.length > 0) {
@@ -1588,11 +2114,17 @@
 
         document.getElementById('btnManualSync').addEventListener('click', async () => {
           this.showSpinner(true);
-          await GoogleSheetSync.triggerBackgroundSync();
-          await GoogleSheetSync.pullFromSheets();
-          this.refreshAll();
-          this.showSpinner(false);
-          this.toast('Sync Completed');
+          const pushed = await GoogleSheetSync.triggerBackgroundSync();
+          if (pushed) {
+            await GoogleSheetSync.pullFromSheets();
+            this.refreshAll();
+            this.showSpinner(false);
+            this.toast('Sync Completed');
+          } else {
+            this.refreshAll();
+            this.showSpinner(false);
+            this.toast('Could not reach backup sheet — check your Sheet API URL / internet connection. Nothing was lost locally.', 'error');
+          }
         });
 
         document.getElementById('btnExportBackup').addEventListener('click', () => this.exportBackup());
@@ -1604,6 +2136,36 @@
         
         document.getElementById('btnCustOrdPDF').addEventListener('click', () => this.downloadCustomerOrdersPDF());
         document.getElementById('btnCustTxnLogPDF').addEventListener('click', () => this.downloadCustomerTxnLogPDF());
+
+        // Supplier page: date filter + download
+        ['suppFromDate', 'suppToDate'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('change', () => this.renderSuppliers());
+        });
+        const btnResetSuppDate = document.getElementById('btnResetSuppDate');
+        if (btnResetSuppDate) {
+          btnResetSuppDate.addEventListener('click', () => {
+            document.getElementById('suppFromDate').value = '';
+            document.getElementById('suppToDate').value = '';
+            this.renderSuppliers();
+          });
+        }
+        const btnDownloadSuppPDF = document.getElementById('btnDownloadSuppPDF');
+        if (btnDownloadSuppPDF) {
+          btnDownloadSuppPDF.addEventListener('click', () => this.downloadSupplierSummaryPDF());
+        }
+
+        // Customer Pay modal
+        const btnConfirmCustomerPay = document.getElementById('btnConfirmCustomerPay');
+        if (btnConfirmCustomerPay) {
+          btnConfirmCustomerPay.addEventListener('click', () => this.processCustomerPayment());
+        }
+
+        // Clear All Data button
+        const btnClearAllData = document.getElementById('btnClearAllData');
+        if (btnClearAllData) {
+          btnClearAllData.addEventListener('click', () => this.clearAllData());
+        }
       }
 
       refreshAll() {
@@ -1971,10 +2533,18 @@
           subtotal += total;
           const div = document.createElement('div');
           div.className = 'cart-item';
+          div.style.cssText = 'grid-template-columns: 1fr auto auto; gap:0.4rem;';
           div.innerHTML = `
             <div>
               <div style="font-weight:600; font-size:0.8rem;">${item.name}</div>
-              <div style="font-size:0.7rem; color:var(--text-muted);">&#8377;${item.rate} / ${item.unit}</div>
+              <div style="display:flex; align-items:center; gap:0.25rem; margin-top:0.15rem;">
+                <span style="font-size:0.68rem; color:var(--text-muted);">₹</span>
+                <input type="number" class="cart-rate-input" min="0" step="0.01" value="${item.rate}"
+                  title="Override price for this customer"
+                  style="width:62px; padding:0.1rem 0.2rem; border:1px dashed var(--primary); border-radius:4px;
+                  font-size:0.75rem; font-weight:700; background:var(--accent-light); color:var(--primary); outline:none;">
+                <span style="font-size:0.68rem; color:var(--text-muted);">/${item.unit}</span>
+              </div>
             </div>
             <div style="display:flex; align-items:center; gap:0.2rem;">
               <button class="btn btn-outline btn-sm btn-dec" style="padding:0.15rem 0.4rem;">-</button>
@@ -1989,8 +2559,21 @@
             </div>
           `;
 
-          const qtyInput = div.querySelector('.cart-qty-input');
-          const totalEl  = div.querySelector('.cart-item-total');
+          const qtyInput  = div.querySelector('.cart-qty-input');
+          const rateInput = div.querySelector('.cart-rate-input');
+          const totalEl   = div.querySelector('.cart-item-total');
+
+          // Price override per customer
+          rateInput.addEventListener('input', () => {
+            const newRate = parseFloat(rateInput.value);
+            if (!isNaN(newRate) && newRate >= 0) {
+              item.rate = newRate;
+              totalEl.innerText = `\u20B9${(item.qty * newRate).toFixed(2)}`;
+              const newSubtotal = this.cart.reduce((a, b) => a + (b.qty * b.rate), 0);
+              this.dom.cartSubtotal.innerText = `\u20B9${newSubtotal.toFixed(2)}`;
+              document.getElementById('posPaid').value = newSubtotal.toFixed(2);
+            }
+          });
 
           qtyInput.addEventListener('input', () => {
             const newQty = parseFloat(qtyInput.value);
@@ -2045,7 +2628,25 @@
         });
 
         this.dom.cartSubtotal.innerText = `\u20B9${subtotal.toFixed(2)}`;
-        document.getElementById('posPaid').value = subtotal.toFixed(2);
+        const posPaidMain = document.getElementById('posPaid');
+        posPaidMain.value = subtotal.toFixed(2);
+        posPaidMain.max   = subtotal.toFixed(2);
+        // Live guard: prevent typing more than the current grand total
+        if (!posPaidMain._lkmGuardAttached) {
+          posPaidMain._lkmGuardAttached = true;
+          posPaidMain.addEventListener('input', () => {
+            const maxVal = parseFloat(posPaidMain.max) || 0;
+            const cur = parseFloat(posPaidMain.value) || 0;
+            const hint = document.getElementById('posPaidHint');
+            if (cur > maxVal) {
+              posPaidMain.style.borderColor = 'var(--danger)';
+              if (hint) hint.style.display = 'block';
+            } else {
+              posPaidMain.style.borderColor = '';
+              if (hint) hint.style.display = 'none';
+            }
+          });
+        }
 
         // --- Stock validation: check each inventory item against cart qty ---
         const inv = StorageService.get('inventory');
@@ -2089,6 +2690,12 @@
 
         const subtotal   = this.cart.reduce((a, b) => a + (b.qty * b.rate), 0);
         const grandTotal = subtotal + miscTotal - discount;
+
+        // Guard: paid amount cannot exceed grand total
+        if (paidAmount > grandTotal + 0.001) {
+          return this.toast(`Amount paid (₹${paidAmount.toFixed(2)}) cannot exceed the order total (₹${grandTotal.toFixed(2)})`, 'error');
+        }
+
         const pendingAmount = Math.max(0, grandTotal - paidAmount);
 
         let customers = StorageService.get('customers');
@@ -2726,6 +3333,17 @@
       // Returns the transactions matching the currently active Transactions-page
       // search box + date filter. Shared by the table render, the preview popup,
       // the PDF export and the WhatsApp share so they all agree on what "filtered" means.
+      // Maps a Transactions-page tab id to the transaction `type` values it should show.
+      // 'supplier' covers both the original Purchase invoice rows and the Supplier
+      // Payment settlement rows, since together they're the full supplier ledger —
+      // the same two types shown in the Suppliers page's per-supplier Txn log.
+      txnTabTypeMatch(t) {
+        switch (this.txnTypeTab) {
+          case 'supplier': return t.type === 'Purchase' || t.type === 'Supplier Payment';
+          default:         return true; // 'all'
+        }
+      }
+
       getFilteredTransactions() {
         const txns = StorageService.get('transactions');
         const searchVal = (document.getElementById('txnSearchFilter').value || '').toLowerCase().trim();
@@ -2733,6 +3351,8 @@
         const toDate    = document.getElementById('txnToDate').value;
 
         return txns.filter(t => {
+          if (!this.txnTabTypeMatch(t)) return false;
+
           const resolvedName = this.resolveCustomerName(t).toLowerCase();
           const matchQuery = !searchVal ||
             (t.customerName && this.matchesSearch(t.customerName, searchVal)) ||
@@ -2744,7 +3364,7 @@
           const matchDate = (!fromDate || d >= fromDate) && (!toDate || d <= toDate);
 
           return matchQuery && matchDate;
-        });
+        }).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
       }
 
       // Correctly totals a set of transaction rows.
@@ -3550,7 +4170,15 @@
         inv.forEach(f => fSelect.innerHTML += `<option value="${f.id}">${f.name} (Stock: ${f.qty} ${f.unit})</option>`);
         document.getElementById('formPurchase').reset();
 
-        // Auto-fill fields when a fruit is selected
+        // Auto-fill fields when a fruit is selected; also update the max for purPaid
+        const updatePurPaidMax = () => {
+          const qty  = parseFloat(document.getElementById('purQty').value)  || 0;
+          const rate = parseFloat(document.getElementById('purRate').value) || 0;
+          const total = qty * rate;
+          const paidEl = document.getElementById('purPaid');
+          paidEl.max = total.toFixed(2);
+        };
+
         const autoFill = () => {
           const fruitId = fSelect.value;
           const fruit = StorageService.get('inventory').find(x => x.id === fruitId);
@@ -3559,9 +4187,14 @@
           document.getElementById('purRate').value = fruit.costPrice || '';
           // Auto-set paid = total (full payment by default)
           const total = (parseFloat(fruit.qty) || 0) * (parseFloat(fruit.costPrice) || 0);
-          document.getElementById('purPaid').value = total > 0 ? total.toFixed(2) : '';
+          const paidEl = document.getElementById('purPaid');
+          paidEl.value = total > 0 ? total.toFixed(2) : '';
+          paidEl.max   = total > 0 ? total.toFixed(2) : '';
         };
+
         fSelect.addEventListener('change', autoFill);
+        document.getElementById('purQty').addEventListener('input', updatePurPaidMax);
+        document.getElementById('purRate').addEventListener('input', updatePurPaidMax);
         // Trigger for first item
         if (fSelect.options.length > 0) autoFill();
 
@@ -3578,6 +4211,12 @@
         const paid = parseFloat(document.getElementById('purPaid').value);
 
         const total = qty * rate;
+
+        // Guard: paid amount cannot exceed purchase total
+        if (paid > total + 0.001) {
+          return this.toast(`Amount paid (₹${paid.toFixed(2)}) cannot exceed the purchase total (₹${total.toFixed(2)})`, 'error');
+        }
+
         const pending = total - paid;
         const purNo = 'PUR_' + Date.now();
 
@@ -3862,31 +4501,57 @@
       }
 
       renderSuppliers() {
-        const supps = StorageService.get('suppliers');
+        const supps = StorageService.get('suppliers').sort((a, b) => (a.name || '').localeCompare(b.name || ''));
         const purchases = StorageService.get('purchases');
+        const txns = StorageService.get('transactions');
         const tbody = document.getElementById('suppliersTbody');
         tbody.innerHTML = '';
 
         supps.forEach(s => {
           const myPur = purchases.filter(p => p.suppId === s.id);
-          const total = myPur.reduce((a,b) => a + b.total, 0);
-          const paid = myPur.reduce((a,b) => a + b.paid, 0);
-          const pending = total - paid;
+          const total = myPur.reduce((a,b) => a + (parseFloat(b.total) || 0), 0);
+
+          // Paid = whatever is recorded directly on the purchase rows (original purchase-time
+          // payment + any later payment amount that got allocated back onto that purchase).
+          const paidFromPurchases = myPur.reduce((a,b) => a + (parseFloat(b.paid) || 0), 0);
+
+          // Cross-check against the transaction log so the figure stays correct even if a
+          // purchase's `paid` field is 0/missing (e.g. stock added without filling "Amount Paid",
+          // older/imported records, or an overpayment that exceeded that purchase's pending amount).
+          const purNos = new Set(myPur.map(p => p.purNo));
+          const paidFromPurchaseTxns = txns
+            .filter(t => t.type === 'Purchase' && purNos.has(t.ref))
+            .reduce((a, t) => a + (parseFloat(t.paidAmount) || 0), 0);
+          const paidFromPaymentTxns = txns
+            .filter(t => t.type === 'Supplier Payment' && t.customerName === s.name)
+            .reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+          const paidFromTxns = paidFromPurchaseTxns + paidFromPaymentTxns;
+
+          // Use whichever source shows more paid — guards against either side being stale.
+          const paid = Math.max(paidFromPurchases, paidFromTxns);
+          const pending = Math.max(0, total - paid);
 
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td><strong>${s.name}</strong></td>
             <td>${s.phone}</td>
             <td>${s.address}</td>
-            <td>₹${total.toFixed(2)}</td>
-            <td>₹${paid.toFixed(2)}</td>
-            <td>₹${pending.toFixed(2)}</td>
+            <td>&#8377;${total.toFixed(2)}</td>
+            <td>&#8377;${paid.toFixed(2)}</td>
+            <td style="color:${pending > 0 ? 'var(--danger)' : 'var(--success)'}; font-weight:700;">&#8377;${pending.toFixed(2)}</td>
             <td>
-              <button class="btn btn-outline btn-sm btn-clear-supp" data-id="${s.id}" data-due="${pending}">Pay</button>
+              <button class="btn btn-outline btn-sm btn-supp-txn" data-id="${s.id}" data-name="${s.name}"><i class="fa-solid fa-receipt"></i> Txn</button>
+            </td>
+            <td>
+              <button class="btn btn-primary btn-sm btn-clear-supp" data-id="${s.id}" data-due="${pending}">Pay</button>
               <button class="btn btn-danger btn-sm del-supp" data-id="${s.id}"><i class="fa-solid fa-trash"></i></button>
             </td>
           `;
           tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('.btn-supp-txn').forEach(b => {
+          b.onclick = () => this.showSupplierTransactions(b.dataset.id, b.dataset.name);
         });
 
         tbody.querySelectorAll('.btn-clear-supp').forEach(b => {
@@ -3896,6 +4561,413 @@
         tbody.querySelectorAll('.del-supp').forEach(b => {
           b.onclick = () => this.deleteSupplier(b.dataset.id);
         });
+      }
+
+      // ───── SUPPLIER TRANSACTION LOG ─────
+      showSupplierTransactions(suppId, suppName) {
+        this.currentSupplierTxnId   = suppId;
+        this.currentSupplierTxnName = suppName;
+
+        // Current state of each purchase
+        const purchases = StorageService.get('purchases')
+          .filter(p => p.suppId === suppId)
+          .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        const purNos  = new Set(purchases.map(p => p.purNo));
+        const allTxns = StorageService.get('transactions');
+
+        // ORIGINAL Purchase transaction records (written once at purchase creation, NEVER mutated).
+        // We use these so the purchase row always shows original paid/pending —
+        // payments do NOT retroactively change the previous row's values.
+        const purTxnMap = new Map();
+        allTxns
+          .filter(t => t.type === 'Purchase' && purNos.has(t.ref))
+          .forEach(t => purTxnMap.set(t.ref, t));
+
+        // Each Supplier Payment transaction → its own separate row
+        const payTxns = allTxns
+          .filter(t => t.type === 'Supplier Payment' && t.customerName === suppName)
+          .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        // Build rows:
+        //   Purchase rows → use ORIGINAL paid/pending (from transaction record, fallback to current)
+        //   Payment rows  → each payment as its own row (paid=amount, pending=—)
+        const allRows = [
+          ...purchases.map(p => {
+            const txn = purTxnMap.get(p.purNo);
+            return {
+              date      : p.date,
+              ref       : p.purNo,
+              rowType   : 'Purchase',
+              invoiceAmt: p.total                                 || 0,
+              paid      : txn ? (txn.paidAmount    || 0) : (p.paid    || 0),
+              pending   : txn ? (txn.pendingAmount || 0) : (p.pending || 0)
+            };
+          }),
+          ...payTxns.map(t => ({
+            date      : t.date,
+            ref       : `Paid \u20B9${(t.amount || 0).toFixed(2)}`,
+            rowType   : 'Payment Made',
+            invoiceAmt: 0,
+            paid      : t.amount || 0,
+            pending   : 0
+          }))
+        ].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        // Running balance = previous balance + this row's invoice amount − this row's paid amount.
+        //   Purchase row     → invoiceAmt = purchase total, paid = amount paid at purchase time
+        //   Payment Made row → invoiceAmt = 0, paid = amount paid
+        // (No flooring at 0 — balance reflects the true running total.)
+        let runningBalance = 0;
+        const rows = allRows.map(r => {
+          runningBalance = runningBalance + r.invoiceAmt - r.paid;
+          return { ...r, runningBalance };
+        });
+
+        // Totals from CURRENT purchase state (reflects all applied payments accurately)
+        const totPurchase = purchases.reduce((s, p) => s + (p.total   || 0), 0);
+        const totPaid     = purchases.reduce((s, p) => s + (p.paid    || 0), 0);
+        const totPending  = purchases.reduce((s, p) => s + (p.pending || 0), 0);
+
+        // Build HTML
+        const container = document.getElementById('suppTxnList');
+        if (rows.length === 0) {
+          container.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fa-solid fa-inbox" style="font-size:2rem;margin-bottom:0.5rem;"></i><br>No transactions found for ${suppName}.</div>`;
+        } else {
+
+
+          const rowsHtml = rows.map((r, i) => {
+            const isPurch   = r.rowType === 'Purchase';
+            const rowBg     = isPurch
+              ? (i % 2 === 0 ? '#fff' : '#f9fafb')
+              : (i % 2 === 0 ? '#E8F5E9' : '#F1F8E9');
+            const typeBadge = isPurch
+              ? `<span style="font-size:0.7rem;background:#FFF3E0;color:#E65100;padding:2px 7px;border-radius:10px;white-space:nowrap;">Purchase</span>`
+              : `<span style="font-size:0.7rem;background:#E8F5E9;color:#2E7D32;padding:2px 7px;border-radius:10px;white-space:nowrap;">&#9654; Payment Made</span>`;
+            return `
+            <tr style="background:${rowBg};">
+              <td style="padding:0.45rem 0.6rem;border:1px solid #e0e0e0;white-space:nowrap;font-size:0.78rem;">${this.formatDate(r.date)}</td>
+              <td style="padding:0.45rem 0.6rem;border:1px solid #e0e0e0;font-size:0.78rem;"><strong>${r.ref}</strong></td>
+              <td style="padding:0.45rem 0.6rem;border:1px solid #e0e0e0;">${typeBadge}</td>
+              <td style="padding:0.45rem 0.6rem;border:1px solid #e0e0e0;text-align:right;font-weight:700;">${isPurch ? '&#8377;' + r.invoiceAmt.toFixed(2) : '&#8212;'}</td>
+              <td style="padding:0.45rem 0.6rem;border:1px solid #e0e0e0;text-align:right;color:#43A047;font-weight:600;">&#8377;${r.paid.toFixed(2)}</td>
+              <td style="padding:0.45rem 0.6rem;border:1px solid #e0e0e0;text-align:right;color:${r.pending > 0 ? '#E53935' : '#43A047'};font-weight:600;">&#8377;${r.pending.toFixed(2)}</td>
+              <td style="padding:0.45rem 0.6rem;border:1px solid #e0e0e0;text-align:right;font-weight:800;color:${r.runningBalance > 0 ? '#E53935' : '#43A047'};font-size:0.85rem;">&#8377;${r.runningBalance.toFixed(2)}</td>
+            </tr>`;
+          }).join('');
+
+          container.innerHTML = `
+            <div style="text-align:center;padding:0.5rem 0 0.75rem;">
+              <strong style="color:var(--primary);font-size:1.05rem;">${suppName}</strong>
+              <div style="font-size:0.8rem;color:var(--text-muted);">Supplier Transaction Statement</div>
+            </div>
+            <div style="overflow-x:auto;">
+              <table style="width:100%;border-collapse:collapse;font-size:0.8rem;min-width:540px;">
+                <thead>
+                  <tr style="background:#2E7D32;color:#fff;">
+                    <th style="padding:0.45rem 0.6rem;border:1px solid #388E3C;text-align:left;">Date</th>
+                    <th style="padding:0.45rem 0.6rem;border:1px solid #388E3C;text-align:left;">Reference</th>
+                    <th style="padding:0.45rem 0.6rem;border:1px solid #388E3C;text-align:left;">Type</th>
+                    <th style="padding:0.45rem 0.6rem;border:1px solid #388E3C;text-align:right;">Invoice Amt</th>
+                    <th style="padding:0.45rem 0.6rem;border:1px solid #388E3C;text-align:right;">Paid</th>
+                    <th style="padding:0.45rem 0.6rem;border:1px solid #388E3C;text-align:right;">Pending</th>
+                    <th style="padding:0.45rem 0.6rem;border:1px solid #388E3C;text-align:right;">Balance</th>
+                  </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+              </table>
+            </div>
+            <div style="background:linear-gradient(135deg,#2E7D32,#43A047);color:#fff;border-radius:8px;padding:0.7rem 1rem;display:flex;justify-content:space-around;flex-wrap:wrap;gap:0.5rem;font-weight:700;font-size:0.85rem;margin-top:0.75rem;">
+              <div><i class="fa-solid fa-file-invoice" style="margin-right:0.3rem;"></i>Total Purchase: &#8377;${totPurchase.toFixed(2)}</div>
+              <div><i class="fa-solid fa-circle-check" style="margin-right:0.3rem;"></i>Total Paid: &#8377;${totPaid.toFixed(2)}</div>
+              <div><i class="fa-solid fa-clock" style="margin-right:0.3rem;"></i>Outstanding: &#8377;${totPending.toFixed(2)}</div>
+            </div>`;
+        }
+
+        document.getElementById('suppTxnModalTitle').innerText = `Transactions: ${suppName}`;
+        document.getElementById('btnSuppTxnPDF').onclick = () => this.downloadSupplierTxnPDF(suppName, rows, { totPurchase, totPaid, totPending });
+        document.getElementById('modalSupplierTxn').classList.add('active');
+      }
+
+
+      downloadSupplierTxnPDF(suppName, rows, totals) {
+        if (!rows || rows.length === 0) return this.toast('No transactions to download', 'error');
+        const { jsPDF } = window.jspdf;
+        const doc  = new jsPDF({ orientation: 'landscape' });
+        const pageW = doc.internal.pageSize.getWidth();
+
+        doc.setFontSize(15); doc.setFont(undefined, 'bold');
+        doc.text('LKM & Narasimhalu Fruits Merchant', pageW / 2, 14, { align: 'center' });
+        doc.setFontSize(9); doc.setFont(undefined, 'normal');
+        doc.text('Theen Kandil, Raichur | Ph: +91 9741682090 / 9110407354', pageW / 2, 20, { align: 'center' });
+        doc.setFontSize(11); doc.setFont(undefined, 'bold');
+        doc.text(`Supplier Transaction Statement: ${suppName}`, pageW / 2, 27, { align: 'center' });
+        doc.setFont(undefined, 'normal'); doc.setFontSize(8);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, pageW / 2, 32, { align: 'center' });
+
+        const body = rows.map(r => [
+          this.formatDate(r.date),
+          r.ref,
+          r.rowType,
+          r.invoiceAmt > 0 ? `Rs.${r.invoiceAmt.toFixed(2)}` : '—',
+          `Rs.${r.paid.toFixed(2)}`,
+          `Rs.${r.pending.toFixed(2)}`,
+          `Rs.${r.runningBalance.toFixed(2)}`
+        ]);
+
+
+        doc.autoTable({
+          head: [['Date', 'Reference', 'Type', 'Invoice Amt', 'Paid', 'Pending', 'Balance']],
+          body,
+          startY: 37,
+          margin: { left: 10, right: 10 },
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fillColor: [46, 125, 50], textColor: 255, fontStyle: 'bold' },
+          columnStyles: { 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } },
+          theme: 'grid'
+        });
+
+        let y = doc.lastAutoTable.finalY + 6;
+        if (y > doc.internal.pageSize.getHeight() - 20) { doc.addPage(); y = 14; }
+        doc.setFillColor(46, 125, 50);
+        doc.rect(10, y, pageW - 20, 10, 'F');
+        doc.setFontSize(9); doc.setFont(undefined, 'bold'); doc.setTextColor(255, 255, 255);
+        doc.text(
+          `Total Purchase: Rs.${totals.totPurchase.toFixed(2)}   |   Paid: Rs.${totals.totPaid.toFixed(2)}   |   Outstanding: Rs.${totals.totPending.toFixed(2)}`,
+          pageW / 2, y + 6.5, { align: 'center' }
+        );
+        doc.setTextColor(0, 0, 0); doc.setFont(undefined, 'normal');
+        doc.save(`${suppName}_Supplier_Transactions.pdf`);
+        this.toast('PDF downloaded successfully');
+      }
+
+      // ───── SUPPLIER SUMMARY PDF (date-filtered) ─────
+      downloadSupplierSummaryPDF() {
+        const supps     = StorageService.get('suppliers');
+        const purchases = StorageService.get('purchases');
+        const txns      = StorageService.get('transactions');
+        const fromDate  = (document.getElementById('suppFromDate') || {}).value || '';
+        const toDate    = (document.getElementById('suppToDate')   || {}).value || '';
+
+        if (supps.length === 0) return this.toast('No suppliers found', 'error');
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'landscape' });
+        const pageW = doc.internal.pageSize.getWidth();
+
+        doc.setFontSize(15); doc.setFont(undefined, 'bold');
+        doc.text('LKM & Narasimhalu Fruits Merchant', pageW / 2, 14, { align: 'center' });
+        doc.setFontSize(9); doc.setFont(undefined, 'normal');
+        doc.text('Theen Kandil, Raichur | Ph: +91 9741682090 / 9110407354', pageW / 2, 20, { align: 'center' });
+        doc.setFontSize(11); doc.setFont(undefined, 'bold');
+        doc.text('Supplier Summary Report', pageW / 2, 27, { align: 'center' });
+        doc.setFont(undefined, 'normal'); doc.setFontSize(8);
+        const dateLabel = (fromDate || toDate)
+          ? `${fromDate || '...'} to ${toDate || '...'}`
+          : 'All Time';
+        doc.text(`Period: ${dateLabel} | Generated: ${new Date().toLocaleString()}`, pageW / 2, 32, { align: 'center' });
+
+        const body = supps.map(s => {
+          // Filter purchases by date range for this supplier
+          const myPur = purchases.filter(p => {
+            if (p.suppId !== s.id) return false;
+            if (fromDate || toDate) {
+              const d = new Date(p.date).toISOString().split('T')[0];
+              if (fromDate && d < fromDate) return false;
+              if (toDate   && d > toDate)   return false;
+            }
+            return true;
+          });
+          const total = myPur.reduce((a, b) => a + (parseFloat(b.total) || 0), 0);
+          const paidFromPurchases = myPur.reduce((a, b) => a + (parseFloat(b.paid) || 0), 0);
+          const purNos = new Set(myPur.map(p => p.purNo));
+          const paidFromPurchaseTxns = txns
+            .filter(t => t.type === 'Purchase' && purNos.has(t.ref))
+            .reduce((a, t) => a + (parseFloat(t.paidAmount) || 0), 0);
+          const paidFromPaymentTxns = txns
+            .filter(t => {
+              if (t.type !== 'Supplier Payment' || t.customerName !== s.name) return false;
+              if (fromDate || toDate) {
+                const d = new Date(t.date).toISOString().split('T')[0];
+                if (fromDate && d < fromDate) return false;
+                if (toDate   && d > toDate)   return false;
+              }
+              return true;
+            })
+            .reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+          const paid    = Math.max(paidFromPurchases, paidFromPurchaseTxns + paidFromPaymentTxns);
+          const pending = Math.max(0, total - paid);
+          return [
+            s.name,
+            s.phone || '-',
+            s.address || '-',
+            `Rs.${total.toFixed(2)}`,
+            `Rs.${paid.toFixed(2)}`,
+            `Rs.${pending.toFixed(2)}`
+          ];
+        });
+
+        const grandTotal   = body.reduce((a, r) => a + parseFloat(r[3].replace('Rs.', '')), 0);
+        const grandPaid    = body.reduce((a, r) => a + parseFloat(r[4].replace('Rs.', '')), 0);
+        const grandPending = body.reduce((a, r) => a + parseFloat(r[5].replace('Rs.', '')), 0);
+
+        doc.autoTable({
+          head: [['Supplier', 'Phone', 'Address', 'Total Purchases', 'Paid', 'Pending Balance']],
+          body,
+          startY: 37,
+          margin: { left: 10, right: 10 },
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fillColor: [46, 125, 50], textColor: 255, fontStyle: 'bold' },
+          columnStyles: { 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right', textColor: [229, 57, 53] } },
+          theme: 'grid'
+        });
+
+        let y = doc.lastAutoTable.finalY + 6;
+        if (y > doc.internal.pageSize.getHeight() - 20) { doc.addPage(); y = 14; }
+        doc.setFillColor(46, 125, 50);
+        doc.rect(10, y, pageW - 20, 10, 'F');
+        doc.setFontSize(9); doc.setFont(undefined, 'bold'); doc.setTextColor(255, 255, 255);
+        doc.text(
+          `Total Purchases: Rs.${grandTotal.toFixed(2)}   |   Total Paid: Rs.${grandPaid.toFixed(2)}   |   Total Pending: Rs.${grandPending.toFixed(2)}`,
+          pageW / 2, y + 6.5, { align: 'center' }
+        );
+        doc.setTextColor(0, 0, 0); doc.setFont(undefined, 'normal');
+        doc.save(`LKM_Suppliers_Summary_${new Date().toISOString().split('T')[0]}.pdf`);
+        this.toast('Supplier PDF downloaded');
+      }
+
+      // ───── CUSTOMER PAY MODAL: distribute payment across orders oldest-first ─────
+      openCustomerPayModal(customerName, totalPending) {
+        const orders = StorageService.get('orders')
+          .filter(o => o.customerName.toLowerCase() === customerName.toLowerCase() &&
+                       o.status !== 'Cancelled' && o.pendingAmount > 0)
+          .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        document.getElementById('custPayModalTitle').innerHTML =
+          `<i class="fa-solid fa-hand-holding-dollar"></i> Pay — ${customerName}`;
+        document.getElementById('custPayTotalPending').innerText = totalPending.toFixed(2);
+        const custPayAmtEl = document.getElementById('custPayAmt');
+        custPayAmtEl.value = totalPending.toFixed(2);
+        custPayAmtEl.max   = totalPending.toFixed(2);  // browser-level cap
+        document.getElementById('custPayMode').value = 'Cash';
+
+        // Show order breakdown preview
+        const infoEl = document.getElementById('custPayInfo');
+        infoEl.innerHTML = `<strong>${orders.length}</strong> pending order(s) for <strong>${customerName}</strong>. Payment will clear oldest orders first.`;
+
+        const previewEl = document.getElementById('custPayOrdersPreview');
+        previewEl.innerHTML = orders.map(o =>
+          `<div style="display:flex; justify-content:space-between; padding:0.2rem 0; border-bottom:1px dashed rgba(0,0,0,0.08);"><span><strong>${o.orderNo}</strong></span><span style="color:var(--danger);">Due: ₹${o.pendingAmount.toFixed(2)}</span></div>`
+        ).join('');
+
+        this._custPayOrders   = orders;
+        this._custPayCustomer = customerName;
+        document.getElementById('modalCustomerPay').classList.add('active');
+      }
+
+      processCustomerPayment() {
+        const amt  = parseFloat(document.getElementById('custPayAmt').value);
+        const mode = document.getElementById('custPayMode').value;
+        if (!amt || amt <= 0) return this.toast('Please enter a valid amount', 'error');
+
+        const totalPending = parseFloat(document.getElementById('custPayTotalPending').innerText);
+        if (amt > totalPending + 0.001) {
+          return this.toast(`Amount (₹${amt.toFixed(2)}) cannot exceed total pending balance (₹${totalPending.toFixed(2)})`, 'error');
+        }
+
+        const customerName = this._custPayCustomer;
+        let remaining = amt;
+        let orders = StorageService.get('orders');
+        const txns = StorageService.get('transactions');
+
+        // Distribute payment across orders oldest-first
+        this._custPayOrders.forEach(po => {
+          if (remaining <= 0) return;
+          const ord = orders.find(o => o.orderNo === po.orderNo);
+          if (!ord || ord.pendingAmount <= 0) return;
+          const payAlloc = Math.min(ord.pendingAmount, remaining);
+          ord.paidAmount    += payAlloc;
+          ord.pendingAmount  = Math.max(0, ord.grandTotal - ord.paidAmount);
+          remaining -= payAlloc;
+
+          txns.push({
+            id           : 't_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            date         : new Date().toISOString(),
+            type         : 'Payment Received',
+            customerName : customerName,
+            ref          : ord.orderNo,
+            amount       : payAlloc,
+            paidAmount   : payAlloc,
+            pendingAmount: ord.pendingAmount,
+            payMode      : mode,
+            remarks      : `Payment received for ${ord.orderNo} (bulk pay)`
+          });
+        });
+
+        StorageService.setMany({ orders, transactions: txns });
+        document.getElementById('modalCustomerPay').classList.remove('active');
+        const leftover = remaining > 0 ? ` (₹${remaining.toFixed(2)} excess — no more pending orders)` : '';
+        this.toast(`Payment of ₹${amt.toFixed(2)} applied for ${customerName}${leftover}`);
+        this.refreshAll();
+      }
+
+      // ───── CLEAR ALL DATA ─────
+      async clearAllData() {
+        // Step 1: first confirmation
+        const ok1 = confirm(
+          '⚠️ WARNING: This will permanently delete ALL data (orders, purchases, inventory, customers, suppliers, transactions, expenses) from this device.\n\nThis action CANNOT be undone.\n\nClick OK to continue to the second confirmation.'
+        );
+        if (!ok1) return;
+
+        // Step 2: second confirmation (type word required)
+        const confirmWord = prompt(
+          'FINAL WARNING: Type the word  DELETE  (all caps) to confirm you want to erase everything.'
+        );
+        if (confirmWord !== 'DELETE') {
+          this.toast('Clear cancelled — word did not match.', 'warning');
+          return;
+        }
+
+        this.showSpinner(true);
+
+        // Reset all data keys to their blank initial state
+        const blankData = {
+          inventory: [],
+          purchases: [],
+          suppliers: [],
+          customers: [],
+          orders: [],
+          sales: [],
+          transactions: [],
+          expenses: [],
+          supplierPayments: [],
+          customerLedger: [],
+          supplierLedger: [],
+          billCounter: 101
+        };
+
+        Object.keys(blankData).forEach(k => {
+          localStorage.setItem(`LKM_${k}`, JSON.stringify(blankData[k]));
+        });
+
+        // Attempt to push blank slate to Google Sheets
+        const url = StorageService.get('sheetApiUrl');
+        if (url) {
+          try {
+            const payload = StorageService.getFullBackup();
+            await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify(payload)
+            });
+          } catch (e) {
+            console.warn('Clear sync failed:', e);
+          }
+        }
+
+        this.refreshAll();
+        this.showSpinner(false);
+        this.toast('All data has been cleared successfully.');
       }
 
       saveCustomer() {
@@ -3931,7 +5003,9 @@
         const fromDate   = (document.getElementById('custFromDate') || {}).value || '';
         const toDate     = (document.getElementById('custToDate')   || {}).value || '';
 
-        const filteredCusts = custs.filter(c => c.name.toLowerCase().includes(searchVal));
+        const filteredCusts = custs
+          .filter(c => c.name.toLowerCase().includes(searchVal))
+          .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
         filteredCusts.forEach(c => {
           // Filter orders by customer and date range
@@ -3963,6 +5037,7 @@
             <td>
               <button class="btn btn-outline btn-sm btn-cust-ord" data-name="${c.name}"><i class="fa-solid fa-receipt"></i> Orders</button>
               <button class="btn btn-outline btn-sm btn-cust-txn" data-name="${c.name}"><i class="fa-solid fa-money-bill-transfer"></i> Transactions</button>
+              ${pending > 0 ? `<button class="btn btn-primary btn-sm btn-cust-pay" data-name="${c.name}" data-pending="${pending.toFixed(2)}"><i class="fa-solid fa-hand-holding-dollar"></i> Pay</button>` : ''}
               <button class="btn btn-danger btn-sm del-cust" data-id="${c.id}"><i class="fa-solid fa-trash"></i></button>
             </td>
           `;
@@ -3974,6 +5049,9 @@
         });
         tbody.querySelectorAll('.btn-cust-txn').forEach(b => {
           b.onclick = () => this.showCustomerTransactionLog(b.dataset.name);
+        });
+        tbody.querySelectorAll('.btn-cust-pay').forEach(b => {
+          b.onclick = () => this.openCustomerPayModal(b.dataset.name, parseFloat(b.dataset.pending));
         });
         tbody.querySelectorAll('.del-cust').forEach(b => {
           b.onclick = () => this.deleteCustomer(b.dataset.id);
@@ -4527,281 +5605,4 @@
                 cells += `<td rowspan="${rowCount}" class="text-red">₹${custSubtotal.toFixed(2)}</td>`;
               }
               tr.innerHTML = cells;
-              custTbody.appendChild(tr);
-            });
-          });
-        }
-
-        purchases.forEach(p => {
-          const s = supps.find(x => x.id === p.suppId);
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td><strong>${s?s.name:'Supplier'}</strong></td>
-            <td>₹${p.pending.toFixed(2)}</td>
-            <td><button class="btn btn-primary btn-sm btn-clear-pur" data-pur="${p.purNo}" data-due="${p.pending}">Clear</button></td>
-          `;
-          suppTbody.appendChild(tr);
-        });
-
-        custTbody.querySelectorAll('.btn-clear-order').forEach(b => {
-          b.onclick = () => this.openPayClearModal('order', b.dataset.ord, parseFloat(b.dataset.due));
-        });
-      }
-
-      openPayClearModal(type, targetId, due) {
-        document.getElementById('payClearType').value = type;
-        document.getElementById('payClearTargetId').value = targetId;
-        document.getElementById('lblPayClearDue').innerText = due.toFixed(2);
-        document.getElementById('payClearAmt').value = due.toFixed(2);
-        document.getElementById('modalPayClear').classList.add('active');
-      }
-
-      processPendingPayment() {
-        const type = document.getElementById('payClearType').value;
-        const targetId = document.getElementById('payClearTargetId').value;
-        const amt = parseFloat(document.getElementById('payClearAmt').value);
-        const mode = document.getElementById('payClearMode').value;
-
-        if (type === 'order') {
-          let orders = StorageService.get('orders');
-          const order = orders.find(o => o.orderNo === targetId);
-          if (order) {
-            order.paidAmount += amt;
-            order.pendingAmount = Math.max(0, order.grandTotal - order.paidAmount);
-            StorageService.set('orders', orders);
-
-            const txns = StorageService.get('transactions');
-            txns.push({
-              id: 't_' + Date.now(),
-              date: new Date().toISOString(),
-              type: 'Payment Received',
-              customerName: order.customerName,
-              ref: order.orderNo,
-              amount: amt,
-              paidAmount: amt,
-              pendingAmount: order.pendingAmount,
-              payMode: mode,
-              remarks: `Pending dues cleared for ${order.orderNo}`
-            });
-            StorageService.set('transactions', txns);
-          }
-        } else if (type === 'supplier') {
-          let purchases = StorageService.get('purchases').filter(p => p.suppId === targetId && p.pending > 0);
-          let remainingAmt = amt;
-
-          purchases.forEach(p => {
-            if (remainingAmt <= 0) return;
-            const payAlloc = Math.min(p.pending, remainingAmt);
-            p.paid += payAlloc;
-            p.pending -= payAlloc;
-            remainingAmt -= payAlloc;
-          });
-          StorageService.set('purchases', StorageService.get('purchases'));
-
-          const supps = StorageService.get('suppliers');
-          const supp = supps.find(s => s.id === targetId);
-
-          const txns = StorageService.get('transactions');
-          txns.push({
-            id: 't_' + Date.now(),
-            date: new Date().toISOString(),
-            type: 'Supplier Payment',
-            customerName: supp ? supp.name : 'Supplier',
-            ref: 'SUP_PAY_' + Date.now(),
-            amount: amt,
-            paidAmount: amt,
-            pendingAmount: 0,
-            payMode: mode,
-            remarks: `Payment cleared to supplier`
-          });
-          StorageService.set('transactions', txns);
-        }
-
-        document.getElementById('modalPayClear').classList.remove('active');
-        this.toast('Payment processed successfully');
-        this.refreshAll();
-      }
-
-      renderExpenses() {
-        const list = StorageService.get('expenses');
-        const tbody = document.getElementById('expensesTbody');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-
-        list.forEach((e, idx) => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${new Date(e.date).toLocaleDateString()}</td>
-            <td><span class="badge badge-yellow">${e.category}</span></td>
-            <td>₹${e.amount.toFixed(2)}</td>
-            <td>${e.remarks || ''}</td>
-            <td><button class="btn btn-danger btn-sm" onclick="app.deleteExpense(${idx})"><i class="fa-solid fa-trash"></i></button></td>
-          `;
-          tbody.appendChild(tr);
-        });
-      }
-
-      saveExpense() {
-        const category = document.getElementById('expCat').value;
-        const amount = parseFloat(document.getElementById('expAmount').value);
-        const remarks = document.getElementById('expRemarks').value.trim();
-
-        const expenses = StorageService.get('expenses');
-        expenses.push({ date: new Date().toISOString(), category, amount, remarks });
-        StorageService.set('expenses', expenses);
-
-        document.getElementById('modalExpense').classList.remove('active');
-        this.toast('Expense recorded');
-        this.refreshAll();
-      }
-
-      deleteExpense(idx) {
-        let expenses = StorageService.get('expenses');
-        expenses.splice(idx, 1);
-        StorageService.set('expenses', expenses);
-        this.toast('Expense deleted');
-        this.refreshAll();
-      }
-
-      renderReports() {
-        const orders = StorageService.get('orders').filter(o => o.status !== 'Cancelled');
-        const tbody = document.getElementById('reportsTbody');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-
-        orders.forEach(o => {
-          const tr = document.createElement('tr');
-          const custName = (o.customerName && o.customerName.trim() !== '') ? o.customerName : 'Walk-in Customer';
-          tr.innerHTML = `
-            <td>${o.orderNo}</td>
-            <td>${new Date(o.date).toLocaleDateString()}</td>
-            <td>Sale</td>
-            <td>${custName}</td>
-            <td>₹${o.grandTotal.toFixed(2)}</td>
-            <td><span class="badge badge-paid">Completed</span></td>
-          `;
-          tbody.appendChild(tr);
-        });
-      }
-
-      renderDashboard() {
-        const orders = StorageService.get('orders').filter(o => o.status !== 'Cancelled');
-        const todayStr = new Date().toISOString().split('T')[0];
-
-        const todayOrders = orders.filter(o => o.date.startsWith(todayStr));
-        const todaySales = todayOrders.reduce((a,b) => a + b.grandTotal, 0);
-
-        document.getElementById('dashSales').innerText = `₹${todaySales.toFixed(2)}`;
-        document.getElementById('dashOrders').innerText = todayOrders.length;
-
-        const totalColl = orders.reduce((a,b) => a + b.paidAmount, 0);
-        document.getElementById('dashCollection').innerText = `₹${totalColl.toFixed(2)}`;
-
-        const custDue = orders.reduce((a,b) => a + b.pendingAmount, 0);
-        document.getElementById('dashPendingCust').innerText = `₹${custDue.toFixed(2)}`;
-
-        const purchases = StorageService.get('purchases');
-        const suppDue = purchases.reduce((a,b) => a + b.pending, 0);
-        document.getElementById('dashPendingSupp').innerText = `₹${suppDue.toFixed(2)}`;
-
-        const inv = StorageService.get('inventory');
-        const stockVal = inv.reduce((a,b) => a + (b.qty * b.costPrice), 0);
-        document.getElementById('dashStockVal').innerText = `₹${stockVal.toFixed(2)}`;
-
-        const lowStockCount = inv.filter(x => x.qty <= 5).length;
-        document.getElementById('dashLowStock').innerText = lowStockCount;
-
-        this.renderCharts(orders);
-      }
-
-      renderCharts(orders) {
-        const ctxSales = document.getElementById('chartSales').getContext('2d');
-        const ctxPay = document.getElementById('chartPayments').getContext('2d');
-
-        if (this.charts.sales) this.charts.sales.destroy();
-        if (this.charts.payments) this.charts.payments.destroy();
-
-        this.charts.sales = new Chart(ctxSales, {
-          type: 'line',
-          data: {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            datasets: [{ label: 'Sales (₹)', data: [1200, 1900, 3000, 5000, 2300, 3400, 4200], borderColor: '#2E7D32', tension: 0.3 }]
-          },
-          options: { responsive: true, maintainAspectRatio: false }
-        });
-
-        const payModes = { Cash: 0, UPI: 0, Credit: 0 };
-        orders.forEach(o => {
-          if (payModes[o.paymentMode] !== undefined) payModes[o.paymentMode] += o.grandTotal;
-          else payModes['Cash'] += o.grandTotal;
-        });
-
-        this.charts.payments = new Chart(ctxPay, {
-          type: 'doughnut',
-          data: {
-            labels: Object.keys(payModes),
-            datasets: [{ data: Object.values(payModes), backgroundColor: ['#43A047', '#0288D1', '#FB8C00'] }]
-          },
-          options: { responsive: true, maintainAspectRatio: false }
-        });
-      }
-
-      exportBackup() {
-        const data = StorageService.getFullBackup();
-        const wb = XLSX.utils.book_new();
-        Object.keys(data).forEach(k => {
-          const ws = XLSX.utils.json_to_sheet(data[k]);
-          XLSX.utils.book_append_sheet(wb, ws, k);
-        });
-        XLSX.writeFile(wb, `LKM_ERP_Backup_${new Date().toISOString().split('T')[0]}.xlsx`);
-        this.toast('Backup exported successfully');
-      }
-
-      importBackup(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          try {
-            const data = new Uint8Array(evt.target.result);
-            const wb = XLSX.read(data, { type: 'array' });
-            const backup = {};
-            wb.SheetNames.forEach(name => {
-              backup[name] = XLSX.utils.sheet_to_json(wb.Sheets[name]);
-            });
-            StorageService.restoreFullBackup(backup);
-            this.refreshAll();
-            this.toast('Database restored successfully');
-          } catch (err) {
-            this.toast('Invalid backup file format', 'error');
-          }
-        };
-        reader.readAsArrayBuffer(file);
-      }
-
-      exportExcel() {
-        const orders = StorageService.get('orders');
-        const ws = XLSX.utils.json_to_sheet(orders);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Orders');
-        XLSX.writeFile(wb, 'LKM_Report.xlsx');
-        this.toast('Excel report exported');
-      }
-
-      exportPDFReport() {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        doc.text('LKM & Narasimhalu Fruits - Business Report', 14, 15);
-        doc.autoTable({ html: '#reportTable', startY: 22 });
-        doc.save('LKM_Report.pdf');
-        this.toast('PDF report downloaded');
-      }
-    }
-
-    let app;
-    window.addEventListener('DOMContentLoaded', () => {
-      app = new ERPApp();
-    });
-  </script>
-</body>
-</html>
+      

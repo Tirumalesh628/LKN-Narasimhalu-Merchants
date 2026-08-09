@@ -5605,4 +5605,426 @@
                 cells += `<td rowspan="${rowCount}" class="text-red">₹${custSubtotal.toFixed(2)}</td>`;
               }
               tr.innerHTML = cells;
-      
+              custTbody.appendChild(tr);
+            });
+          });
+        }
+
+        purchases.forEach(p => {
+          const s = supps.find(x => x.id === p.suppId);
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${s?s.name:'Supplier'}</strong></td>
+            <td>&#8377;${p.pending.toFixed(2)}</td>
+            <td><button class="btn btn-primary btn-sm btn-clear-pur" data-suppid="${p.suppId}" data-due="${p.pending}">Clear</button></td>
+          `;
+          suppTbody.appendChild(tr);
+        });
+
+        custTbody.querySelectorAll('.btn-clear-order').forEach(b => {
+          b.onclick = () => this.openPayClearModal('order', b.dataset.ord, parseFloat(b.dataset.due));
+        });
+
+        // Fix: bind Clear buttons on supplier pending rows
+        suppTbody.querySelectorAll('.btn-clear-pur').forEach(b => {
+          b.onclick = () => this.openPayClearModal('supplier', b.dataset.suppid, parseFloat(b.dataset.due));
+        });
+      }
+
+      openPayClearModal(type, targetId, due) {
+        document.getElementById('payClearType').value = type;
+        document.getElementById('payClearTargetId').value = targetId;
+        document.getElementById('lblPayClearDue').innerText = due.toFixed(2);
+        const amtInput = document.getElementById('payClearAmt');
+        amtInput.value = due.toFixed(2);
+        amtInput.max   = due.toFixed(2);  // browser-level cap
+        document.getElementById('modalPayClear').classList.add('active');
+      }
+
+      processPendingPayment() {
+        const type = document.getElementById('payClearType').value;
+        const targetId = document.getElementById('payClearTargetId').value;
+        const amt = parseFloat(document.getElementById('payClearAmt').value);
+        const mode = document.getElementById('payClearMode').value;
+        const due = parseFloat(document.getElementById('lblPayClearDue').innerText);
+
+        if (!amt || amt <= 0) return this.toast('Please enter a valid amount', 'error');
+        if (amt > due + 0.001) {
+          return this.toast(`Amount (₹${amt.toFixed(2)}) cannot exceed pending balance (₹${due.toFixed(2)})`, 'error');
+        }
+
+        if (type === 'order') {
+          let orders = StorageService.get('orders');
+          const order = orders.find(o => o.orderNo === targetId);
+          if (order) {
+            order.paidAmount += amt;
+            order.pendingAmount = Math.max(0, order.grandTotal - order.paidAmount);
+
+            const txns = StorageService.get('transactions');
+            txns.push({
+              id: 't_' + Date.now(),
+              date: new Date().toISOString(),
+              type: 'Payment Received',
+              customerName: order.customerName,
+              ref: order.orderNo,
+              amount: amt,
+              paidAmount: amt,
+              pendingAmount: order.pendingAmount,
+              payMode: mode,
+              remarks: `Pending dues cleared for ${order.orderNo}`
+            });
+
+            // Write orders + the new transaction together and sync once,
+            // so the payment can never be pushed only-partially.
+            StorageService.setMany({ orders, transactions: txns });
+          }
+        } else if (type === 'supplier') {
+          this.applySupplierPayment(targetId, amt, mode, `Payment cleared to supplier`);
+        }
+
+        document.getElementById('modalPayClear').classList.remove('active');
+        this.toast('Payment processed successfully');
+        this.refreshAll();
+      }
+
+      // Shared logic for recording a supplier payment: allocates the amount
+      // against that supplier's oldest pending purchases first, logs a
+      // 'Supplier Payment' transaction, and writes both changes with a single
+      // StorageService.setMany() call so they always sync together — used by
+      // both the Suppliers page "Pay" button and the Transactions > Suppliers
+      // tab "Add Supplier Transaction" form.
+      applySupplierPayment(suppId, amt, mode, remarksPrefix) {
+        let allPurchases = StorageService.get('purchases');
+        let remainingAmt = amt;
+
+        allPurchases.forEach(p => {
+          if (p.suppId !== suppId || p.pending <= 0) return;
+          if (remainingAmt <= 0) return;
+          const payAlloc = Math.min(p.pending, remainingAmt);
+          p.paid    += payAlloc;
+          p.pending -= payAlloc;
+          remainingAmt -= payAlloc;
+        });
+
+        const supps = StorageService.get('suppliers');
+        const supp  = supps.find(s => s.id === suppId);
+
+        const txns = StorageService.get('transactions');
+        txns.push({
+          id           : 't_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+          date         : new Date().toISOString(),
+          type         : 'Supplier Payment',
+          customerName : supp ? supp.name : 'Supplier',
+          ref          : 'SUP_PAY_' + Date.now(),
+          amount       : amt,
+          paidAmount   : amt,
+          pendingAmount: 0,
+          payMode      : mode,
+          remarks      : `${remarksPrefix}${supp ? ' ' + supp.name : ''}`
+        });
+
+        StorageService.setMany({ purchases: allPurchases, transactions: txns });
+      }
+
+      // ───── Transactions > Suppliers tab: "Add Supplier Transaction" ─────
+      openAddSupplierTxnModal() {
+        const supps = StorageService.get('suppliers');
+        const select = document.getElementById('supTxnSuppId');
+        select.innerHTML = supps.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        document.getElementById('supTxnAmt').value = '';
+        document.getElementById('supTxnRemarks').value = '';
+        this.updateSupTxnPendingLabel();
+        document.getElementById('modalAddSupplierTxn').classList.add('active');
+      }
+
+      updateSupTxnPendingLabel() {
+        const suppId = document.getElementById('supTxnSuppId').value;
+        const purchases = StorageService.get('purchases');
+        const pending = purchases.filter(p => p.suppId === suppId).reduce((a, b) => a + (b.pending || 0), 0);
+        document.getElementById('supTxnCurrentPending').innerText = pending.toFixed(2);
+        // Keep the amount input capped to the current pending balance
+        const amtEl = document.getElementById('supTxnAmt');
+        if (amtEl) amtEl.max = pending.toFixed(2);
+      }
+
+      addSupplierTransactionFromTab() {
+        const suppId = document.getElementById('supTxnSuppId').value;
+        const amt = parseFloat(document.getElementById('supTxnAmt').value);
+        const mode = document.getElementById('supTxnMode').value;
+        const remarks = document.getElementById('supTxnRemarks').value.trim();
+
+        if (!suppId) return this.toast('Please choose a supplier', 'error');
+        if (!amt || amt <= 0) return this.toast('Please enter a valid amount', 'error');
+
+        const pending = parseFloat(document.getElementById('supTxnCurrentPending').innerText);
+        if (amt > pending + 0.001) {
+          return this.toast(`Amount (₹${amt.toFixed(2)}) cannot exceed pending balance (₹${pending.toFixed(2)})`, 'error');
+        }
+
+        this.applySupplierPayment(suppId, amt, mode, remarks || 'Payment recorded for supplier');
+
+        document.getElementById('modalAddSupplierTxn').classList.remove('active');
+        this.toast('Supplier transaction saved & synced to backup');
+        this.refreshAll();
+      }
+
+      renderExpenses() {
+        const list = StorageService.get('expenses');
+        const tbody = document.getElementById('expensesTbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        list.forEach((e, idx) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${new Date(e.date).toLocaleDateString()}</td>
+            <td><span class="badge badge-yellow">${e.category}</span></td>
+            <td>₹${e.amount.toFixed(2)}</td>
+            <td>${e.remarks || ''}</td>
+            <td><button class="btn btn-danger btn-sm" onclick="app.deleteExpense(${idx})"><i class="fa-solid fa-trash"></i></button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      saveExpense() {
+        const category = document.getElementById('expCat').value;
+        const amount = parseFloat(document.getElementById('expAmount').value);
+        const remarks = document.getElementById('expRemarks').value.trim();
+
+        const expenses = StorageService.get('expenses');
+        expenses.push({ date: new Date().toISOString(), category, amount, remarks });
+        StorageService.set('expenses', expenses);
+
+        document.getElementById('modalExpense').classList.remove('active');
+        this.toast('Expense recorded');
+        this.refreshAll();
+      }
+
+      deleteExpense(idx) {
+        let expenses = StorageService.get('expenses');
+        expenses.splice(idx, 1);
+        StorageService.set('expenses', expenses);
+        this.toast('Expense deleted');
+        this.refreshAll();
+      }
+
+      renderReports() {
+        const orders = StorageService.get('orders').filter(o => o.status !== 'Cancelled');
+        const tbody = document.getElementById('reportsTbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        orders.forEach(o => {
+          const tr = document.createElement('tr');
+          const custName = (o.customerName && o.customerName.trim() !== '') ? o.customerName : 'Walk-in Customer';
+          tr.innerHTML = `
+            <td>${o.orderNo}</td>
+            <td>${new Date(o.date).toLocaleDateString()}</td>
+            <td>Sale</td>
+            <td>${custName}</td>
+            <td>₹${o.grandTotal.toFixed(2)}</td>
+            <td><span class="badge badge-paid">Completed</span></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      // ── Utility: check if a date string falls within fromDate–toDate range ──
+      isWithinDateRange(dateStr, fromDate, toDate) {
+        if (!dateStr) return false;
+        const d = dateStr.split('T')[0]; // handles ISO strings or plain date strings
+        if (fromDate && d < fromDate) return false;
+        if (toDate   && d > toDate)   return false;
+        return true;
+      }
+
+      // ── Utility: format an ISO date string to "DD Mon YYYY" ──
+      formatDate(dateStr) {
+        if (!dateStr) return '—';
+        try {
+          return new Date(dateStr).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+        } catch { return dateStr; }
+      }
+
+      renderDashboard() {
+
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        // Set today's date label
+        const todayEl = document.getElementById('dashTodayDateLabel');
+        if (todayEl) todayEl.innerText = new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+        // ── TODAY'S STATS ──
+        const allOrders   = StorageService.get('orders').filter(o => o.status !== 'Cancelled');
+        const allPurchases = StorageService.get('purchases');
+        const inv = StorageService.get('inventory');
+
+        const todayOrders    = allOrders.filter(o => o.date && o.date.startsWith(todayStr));
+        const todayPurchases = allPurchases.filter(p => p.date && p.date.startsWith(todayStr));
+
+        const tSale       = todayOrders.reduce((a,b) => a + (b.grandTotal || 0), 0);
+        const tCollection = todayOrders.reduce((a,b) => a + (b.paidAmount  || 0), 0);
+        const tPendColl   = todayOrders.reduce((a,b) => a + (b.pendingAmount || 0), 0);
+        const tPurchase   = todayPurchases.reduce((a,b) => a + (b.total || 0), 0);
+        const tSuppPend   = todayPurchases.reduce((a,b) => a + (b.pending || 0), 0);
+        const stockVal    = inv.reduce((a,b) => a + (b.qty * b.costPrice), 0);
+
+        const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+        setEl('dashSales',          `₹${tSale.toFixed(2)}`);
+        setEl('dashTodayCollection', `₹${tCollection.toFixed(2)}`);
+        setEl('dashTodayPendingColl',`₹${tPendColl.toFixed(2)}`);
+        setEl('dashTodayPurchase',   `₹${tPurchase.toFixed(2)}`);
+        setEl('dashTodaySuppPending',`₹${tSuppPend.toFixed(2)}`);
+        setEl('dashStockVal',        `₹${stockVal.toFixed(2)}`);
+
+        // ── OVERALL STATS with date filter (default last 30 days) ──
+        this.renderOverallStats();
+      }
+
+      initDashboardFilters() {
+        // Set default dates: today and 30 days ago
+        const todayStr = new Date().toISOString().split('T')[0];
+        const from30   = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const fromEl = document.getElementById('dashFromDate');
+        const toEl   = document.getElementById('dashToDate');
+        if (fromEl && !fromEl.value) fromEl.value = from30;
+        if (toEl   && !toEl.value)   toEl.value   = todayStr;
+
+        ['dashFromDate','dashToDate'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('change', () => this.renderOverallStats());
+        });
+
+        const resetBtn = document.getElementById('btnDashReset');
+        if (resetBtn) {
+          resetBtn.addEventListener('click', () => {
+            const todayStr2 = new Date().toISOString().split('T')[0];
+            const from302   = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            document.getElementById('dashFromDate').value = from302;
+            document.getElementById('dashToDate').value   = todayStr2;
+            this.renderOverallStats();
+          });
+        }
+      }
+
+      renderOverallStats() {
+        const fromDate = (document.getElementById('dashFromDate') || {}).value || '';
+        const toDate   = (document.getElementById('dashToDate')   || {}).value || '';
+
+        const allOrders    = StorageService.get('orders').filter(o => o.status !== 'Cancelled');
+        const allPurchases = StorageService.get('purchases');
+
+        const filtOrders    = allOrders.filter(o => this.isWithinDateRange(o.date, fromDate, toDate));
+        const filtPurchases = allPurchases.filter(p => this.isWithinDateRange(p.date, fromDate, toDate));
+
+        const ovSale      = filtOrders.reduce((a,b) => a + (b.grandTotal   || 0), 0);
+        const ovColl      = filtOrders.reduce((a,b) => a + (b.paidAmount   || 0), 0);
+        const ovPendColl  = filtOrders.reduce((a,b) => a + (b.pendingAmount|| 0), 0);
+        const ovPurchase  = filtPurchases.reduce((a,b) => a + (b.total     || 0), 0);
+        const ovSuppPend  = filtPurchases.reduce((a,b) => a + (b.pending   || 0), 0);
+
+        const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+        setEl('dashOvSale',       `₹${ovSale.toFixed(2)}`);
+        setEl('dashOvCollection', `₹${ovColl.toFixed(2)}`);
+        setEl('dashOvPendingColl',`₹${ovPendColl.toFixed(2)}`);
+        setEl('dashOvPurchase',   `₹${ovPurchase.toFixed(2)}`);
+        setEl('dashOvSuppPending',`₹${ovSuppPend.toFixed(2)}`);
+      }
+
+      renderCharts(orders) {
+        // Charts removed — no-op
+      }
+
+      exportBackup() {
+        try {
+          const data = StorageService.getFullBackup();
+          const wb = XLSX.utils.book_new();
+
+          // Only table-shaped (array) data goes to its own sheet — this includes every
+          // transaction (Purchase, Supplier Payment, Sale, Order Updated, etc.), purchases,
+          // suppliers, customers, orders, expenses and so on.
+          Object.keys(data).forEach(k => {
+            if (Array.isArray(data[k])) {
+              const ws = XLSX.utils.json_to_sheet(data[k]);
+              XLSX.utils.book_append_sheet(wb, ws, k);
+            }
+          });
+
+          // Scalar app settings (billCounter, sheetApiUrl, etc.) aren't tables, so they can't go
+          // through json_to_sheet directly — that was silently crashing the export before it ever
+          // reached XLSX.writeFile(), which is why NOTHING (including supplier payment
+          // transactions) was actually being saved. They now get their own small "settings" sheet.
+          const settingsRows = Object.keys(data)
+            .filter(k => !Array.isArray(data[k]))
+            .map(k => ({ setting: k, value: data[k] }));
+          if (settingsRows.length > 0) {
+            const settingsWs = XLSX.utils.json_to_sheet(settingsRows);
+            XLSX.utils.book_append_sheet(wb, settingsWs, 'settings');
+          }
+
+          XLSX.writeFile(wb, `LKM_ERP_Backup_${new Date().toISOString().split('T')[0]}.xlsx`);
+          this.toast('Backup exported successfully');
+        } catch (err) {
+          console.error('exportBackup error:', err);
+          this.toast('Backup export failed: ' + (err && err.message ? err.message : 'Unknown error'), 'error');
+        }
+      }
+
+      importBackup(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const data = new Uint8Array(evt.target.result);
+            const wb = XLSX.read(data, { type: 'array' });
+            const backup = {};
+            wb.SheetNames.forEach(name => {
+              if (name === 'settings') {
+                // Scalar settings were stored as {setting, value} rows — unpack them back
+                // into top-level keys (billCounter, sheetApiUrl, etc.).
+                XLSX.utils.sheet_to_json(wb.Sheets[name]).forEach(row => {
+                  if (row && row.setting !== undefined) backup[row.setting] = row.value;
+                });
+              } else {
+                backup[name] = XLSX.utils.sheet_to_json(wb.Sheets[name]);
+              }
+            });
+            StorageService.restoreFullBackup(backup);
+            this.refreshAll();
+            this.toast('Database restored successfully');
+          } catch (err) {
+            console.error('importBackup error:', err);
+            this.toast('Invalid backup file format', 'error');
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      exportExcel() {
+        const orders = StorageService.get('orders');
+        const ws = XLSX.utils.json_to_sheet(orders);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Orders');
+        XLSX.writeFile(wb, 'LKM_Report.xlsx');
+        this.toast('Excel report exported');
+      }
+
+      exportPDFReport() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.text('LKM & Narasimhalu Fruits - Business Report', 14, 15);
+        doc.autoTable({ html: '#reportTable', startY: 22 });
+        doc.save('LKM_Report.pdf');
+        this.toast('PDF report downloaded');
+      }
+    }
+
+    let app;
+    window.addEventListener('DOMContentLoaded', () => {
+      app = new ERPApp();
+    });
+  </script>
+</body>
+</html>
